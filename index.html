@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>报告合集 · 自动同步</title>
+<meta name="description" content="自动收集 GitHub Pages 上发布的所有报告与项目页面">
+<style>
+  :root{
+    --bg:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc;
+    --text:#0f172a; --muted:#64748b; --muted-2:#94a3b8;
+    --accent:#6366f1; --accent-dark:#4f46e5; --accent-soft:#eef2ff;
+    --border:#e2e8f0; --border-2:#cbd5e1;
+    --green:#10b981; --amber:#f59e0b; --rose:#f43f5e; --sky:#0ea5e9;
+    --shadow:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
+    --shadow-md:0 4px 12px rgba(15,23,42,.08);
+    --shadow-lg:0 18px 40px rgba(15,23,42,.14);
+    --radius:18px; --radius-sm:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select{font-family:inherit}
+
+  /* ===== Hero ===== */
+  .hero{
+    position:relative;overflow:hidden;color:#fff;
+    background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 45%,#7c3aed 100%);
+    padding:56px 24px 96px;
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(circle at 20% 20%,rgba(255,255,255,.14),transparent 40%),
+                     radial-gradient(circle at 80% 0%,rgba(56,189,248,.18),transparent 45%);
+  }
+  .hero-inner{max-width:1180px;margin:0 auto;position:relative;z-index:1}
+  .hero-top{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .avatar{
+    width:64px;height:64px;border-radius:18px;object-fit:cover;
+    border:2px solid rgba(255,255,255,.4);box-shadow:0 8px 24px rgba(0,0,0,.3);
+  }
+  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2}
+  .hero .sub{font-size:15px;color:rgba(255,255,255,.78);margin-top:6px;font-weight:400}
+  .hero .sub code{background:rgba(255,255,255,.16);padding:2px 8px;border-radius:6px;font-size:13px}
+  .stats{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+  .stat{
+    background:rgba(255,255,255,.12);backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.18);border-radius:14px;
+    padding:12px 18px;min-width:120px;
+  }
+  .stat .num{font-size:24px;font-weight:800;line-height:1}
+  .stat .lbl{font-size:12px;color:rgba(255,255,255,.7);margin-top:5px}
+
+  /* ===== Toolbar ===== */
+  .toolbar-wrap{max-width:1180px;margin:-52px auto 0;padding:0 24px;position:relative;z-index:2}
+  .toolbar{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow-lg);padding:16px 18px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .search{
+    flex:1;min-width:220px;display:flex;align-items:center;gap:10px;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search svg{flex:none;opacity:.5}
+  .search input{border:none;background:none;outline:none;width:100%;font-size:15px;color:var(--text)}
+  .search input::placeholder{color:var(--muted-2)}
+  .tool-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sort-sel{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:12px;
+    padding:10px 14px;font-size:14px;color:var(--text);outline:none;cursor:pointer;
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;
+  }
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--border);border-radius:12px;padding:10px 16px;
+    font-size:14px;font-weight:600;color:var(--text);background:var(--surface);
+    transition:all .18s;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .btn:active{transform:scale(.97)}
+  .btn svg{flex:none}
+  .result-count{font-size:13px;color:var(--muted);margin-left:auto;white-space:nowrap}
+
+  /* ===== Main ===== */
+  .main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px}
+
+  /* card */
+  .card{
+    position:relative;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:22px;
+    display:flex;flex-direction:column;gap:12px;
+    transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s,border-color .22s;
+    overflow:hidden;
+  }
+  .card::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(var(--accent),var(--sky));
+    transform:scaleY(0);transform-origin:top;transition:transform .3s;
+  }
+  .card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:transparent}
+  .card:hover::before{transform:scaleY(1)}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+    padding:4px 11px;border-radius:20px;white-space:nowrap;
+  }
+  .badge.report{background:#eef2ff;color:#4f46e5}
+  .badge.tool{background:#ecfdf5;color:#059669}
+  .badge.other{background:#fff7ed;color:#c2410c}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .card-date{font-size:12px;color:var(--muted-2);white-space:nowrap}
+  .card-title{font-size:18px;font-weight:700;line-height:1.35;letter-spacing:-.2px}
+  .card-title a:hover{color:var(--accent)}
+  .card-desc{
+    font-size:14px;color:var(--muted);line-height:1.6;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+    flex:1;
+  }
+  .card-repo{
+    font-size:12px;color:var(--muted-2);font-family:'SFMono-Regular',Consolas,monospace;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .card-foot{display:flex;align-items:center;gap:10px;margin-top:4px}
+  .btn-primary{
+    flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--accent);color:#fff;border-radius:11px;padding:10px 16px;
+    font-size:14px;font-weight:600;transition:background .18s,transform .12s;
+  }
+  .btn-primary:hover{background:var(--accent-dark)}
+  .btn-primary:active{transform:scale(.97)}
+  .btn-ghost{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:1px solid var(--border);border-radius:11px;padding:10px 14px;
+    font-size:13px;font-weight:600;color:var(--muted);transition:all .18s;
+  }
+  .btn-ghost:hover{border-color:var(--border-2);color:var(--text);background:var(--surface-2)}
+
+  /* skeleton */
+  .skel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;gap:14px}
+  .skel{background:linear-gradient(90deg,#eef2f6 25%,#e2e8f0 37%,#eef2f6 63%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+  .skel-badge{width:84px;height:24px}
+  .skel-title{width:75%;height:20px}
+  .skel-desc{width:100%;height:14px}
+  .skel-desc2{width:60%;height:14px}
+  .skel-foot{width:100%;height:40px;border-radius:11px}
+
+  /* states */
+  .state-box{text-align:center;padding:80px 24px;color:var(--muted)}
+  .state-box .ico{width:64px;height:64px;margin:0 auto 18px;opacity:.4}
+  .state-box h3{font-size:18px;color:var(--text);margin-bottom:8px}
+  .state-box p{font-size:14px;max-width:380px;margin:0 auto 18px}
+  .card-enter{animation:fadeUp .5s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+    background:#0f172a;color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;
+    box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:all .3s;z-index:50;
+    display:flex;align-items:center;gap:9px;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.ok .dotc{background:var(--green)}
+  .toast.err .dotc{background:var(--rose)}
+  .toast .dotc{width:8px;height:8px;border-radius:50%;background:var(--sky)}
+
+  /* footer */
+  .footer{max-width:1180px;margin:0 auto;padding:24px;text-align:center;color:var(--muted-2);font-size:13px}
+  .footer a{color:var(--accent);font-weight:600}
+  .footer .sep{margin:0 8px;opacity:.5}
+  .live-dot{display:inline-flex;align-items:center;gap:6px}
+  .live-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,.2);animation:pulse 2s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
+
+  @media(max-width:600px){
+    .hero{padding:40px 20px 88px}
+    .hero h1{font-size:24px}
+    .toolbar-wrap,.main,.footer{padding-left:16px;padding-right:16px}
+    .result-count{width:100%;margin-left:0}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Hero ===== -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-top">
+      <img class="avatar" id="avatar" alt="avatar"
+           src="https://avatars.githubusercontent.com/u/270063882?v=4">
+      <div>
+        <h1>报告合集</h1>
+        <div class="sub">自动同步 <code id="userTag">xie1106</code> 的 GitHub Pages 报告 · 新发布即刻收录</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="statTotal">—</div><div class="lbl">收录报告</div></div>
+      <div class="stat"><div class="num" id="statLatest">—</div><div class="lbl">最近更新</div></div>
+      <div class="stat"><div class="num" id="statSync">—</div><div class="lbl">同步状态</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Toolbar ===== -->
+<div class="toolbar-wrap">
+  <div class="toolbar">
+    <div class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="searchInput" type="text" placeholder="搜索报告标题、描述、仓库名…">
+    </div>
+    <div class="tool-group">
+      <select class="sort-sel" id="sortSel">
+        <option value="updated">最近更新</option>
+        <option value="created">最新创建</option>
+        <option value="name">名称排序</option>
+      </select>
+      <button class="btn" id="refreshBtn" title="重新同步">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        同步
+      </button>
+    </div>
+    <div class="result-count" id="resultCount"></div>
+  </div>
+</div>
+
+<!-- ===== Main ===== -->
+<main class="main">
+  <div class="grid" id="grid"></div>
+</main>
+
+<!-- ===== Footer ===== -->
+<footer class="footer">
+  <span class="live-dot">数据由 GitHub API 实时同步</span>
+  <span class="sep">·</span>
+  本地缓存加速，后台静默刷新
+  <span class="sep">·</span>
+  部署到 <a href="https://docs.github.com/pages" target="_blank" rel="noopener">GitHub Pages</a> 获得最佳体验
+</footer>
+
+<div class="toast" id="toast"><span class="dotc"></span><span id="toastMsg"></span></div>
+
+<script>
+/* ============================================================
+ *  报告合集 · 自动收集器
+ *  运行时调用 GitHub API 拉取仓库，筛选 has_pages===true 的项目
+ *  新建并发布 Pages 的报告会自动出现在列表中，无需手动维护
+ * ============================================================ */
+(function(){
+  "use strict";
+
+  // ---- 配置 ----
+  const DEFAULT_USER = "xie1106";                       // GitHub 用户名
+  const user = new URLSearchParams(location.search).get("user") || DEFAULT_USER;
+  const API = `https://api.github.com/users/${user}/repos?sort=updated&per_page=100`;
+  const PAGES_BASE = `https://${user}.github.io`;
+  const CACHE_KEY = `reporthub:${user}`;
+  const CACHE_TTL = 1000 * 60 * 30;                     // 30 分钟缓存有效期
+
+  // ---- DOM ----
+  const $ = s => document.querySelector(s);
+  const grid = $("#grid");
+  const searchInput = $("#searchInput");
+  const sortSel = $("#sortSel");
+  const refreshBtn = $("#refreshBtn");
+  const resultCount = $("#resultCount");
+  const toast = $("#toast");
+  const toastMsg = $("#toastMsg");
+  $("#userTag").textContent = user;
+
+  let allRepos = [];
+  let metaMap = {};   // repoName -> {title, desc, h1}
+
+  // ---- 工具函数 ----
+  function pagesUrl(name){ return `${PAGES_BASE}/${name}/`; }
+
+  function relativeTime(iso){
+    const d = new Date(iso); const now = Date.now();
+    const diff = now - d.getTime();
+    const day = 86400000;
+    if(diff < 60000) return "刚刚";
+    if(diff < 3600000) return Math.floor(diff/60000) + " 分钟前";
+    if(diff < day) return Math.floor(diff/3600000) + " 小时前";
+    if(diff < day*30) return Math.floor(diff/day) + " 天前";
+    if(diff < day*365) return Math.floor(diff/(day*30)) + " 个月前";
+    return Math.floor(diff/(day*365)) + " 年前";
+  }
+
+  function fmtDate(iso){
+    const d = new Date(iso);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function categorize(repo){
+    const t = (repo.name + " " + (repo.description||"")).toLowerCase();
+    if(/报告|分析|report|analysis|总结/.test(t)) return {key:"report",label:"分析报告"};
+    if(/系统|排班|schedule|管理|工具|system|tool/.test(t)) return {key:"tool",label:"工具系统"};
+    return {key:"other",label:"项目页面"};
+  }
+
+  function toastShow(msg, type){
+    toastMsg.textContent = msg;
+    toast.className = "toast show " + (type||"");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> toast.className = "toast", 2600);
+  }
+
+  // ---- 抓取报告页面的标题（增强显示，失败则回退到仓库描述）----
+  async function fetchPageMeta(name){
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 6000);
+      const res = await fetch(pagesUrl(name), {signal:ctrl.signal});
+      clearTimeout(t);
+      if(!res.ok) return null;
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const title = (doc.querySelector("title")?.textContent||"").trim();
+      const desc = (doc.querySelector('meta[name="description"]')?.getAttribute("content")||"").trim();
+      const h1 = (doc.querySelector("h1")?.textContent||"").trim();
+      return {title, desc, h1};
+    }catch(e){ return null; }
+  }
+
+  // ---- 数据获取 ----
+  async function fetchRepos(){
+    const res = await fetch(API, {headers:{Accept:"application/vnd.github+json"}});
+    if(res.status === 403){
+      const remain = res.headers.get("X-RateLimit-Remaining");
+      if(remain === "0") throw new Error("RATE_LIMIT");
+      throw new Error("HTTP 403");
+    }
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }
+
+  function filterReportRepos(repos){
+    return repos
+      .filter(r => r.has_pages && !r.archived)        // 已启用 Pages
+      .filter(r => !r.is_template)                     // 排除模板仓库
+      .filter(r => r.name !== `${user}.github.io`);    // 排除本合集自身
+  }
+
+  // ---- 渲染 ----
+  function renderSkeleton(n){
+    let h = "";
+    for(let i=0;i<n;i++){
+      h += `<div class="skel-card">
+        <div class="skel skel-badge"></div>
+        <div class="skel skel-title"></div>
+        <div class="skel skel-desc"></div>
+        <div class="skel skel-desc2"></div>
+        <div class="skel skel-foot"></div>
+      </div>`;
+    }
+    grid.innerHTML = h;
+  }
+
+  function stateBox(icon, title, desc, btnText, btnAct){
+    grid.innerHTML = `<div class="state-box" style="grid-column:1/-1">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${icon}</svg>
+      <h3>${title}</h3><p>${desc}</p>
+      ${btnText?`<button class="btn" onclick="${btnAct}">${btnText}</button>`:""}
+    </div>`;
+  }
+
+  function renderCards(repos){
+    if(!repos.length){
+      stateBox('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+        "没有匹配的报告","试试更换关键词，或点击同步刷新数据。","重新同步","load(true)");
+      resultCount.textContent = "";
+      return;
+    }
+    resultCount.textContent = `共 ${repos.length} 篇`;
+    grid.innerHTML = repos.map((r,i)=>{
+      const cat = categorize(r);
+      const meta = metaMap[r.name] || {};
+      const title = meta.title || r.description || r.name;
+      const desc = meta.desc || meta.h1 || r.description || "—";
+      const pUrl = pagesUrl(r.name);
+      const delay = Math.min(i*50, 400);
+      return `<article class="card card-enter" style="animation-delay:${delay}ms">
+        <div class="card-head">
+          <span class="badge ${cat.key}"><span class="dot"></span>${cat.label}</span>
+          <span class="card-date" title="更新于 ${fmtDate(r.updated_at)}">${relativeTime(r.updated_at)}</span>
+        </div>
+        <div class="card-title"><a href="${pUrl}" target="_blank" rel="noopener">${escapeHtml(title)}</a></div>
+        <div class="card-desc">${escapeHtml(desc)}</div>
+        <div class="card-repo">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+          ${escapeHtml(r.name)}
+        </div>
+        <div class="card-foot">
+          <a class="btn-primary" href="${pUrl}" target="_blank" rel="noopener">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            查看报告
+          </a>
+          <a class="btn-ghost" href="${r.html_url}" target="_blank" rel="noopener" title="查看源码仓库">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            源码
+          </a>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  function applyFilter(){
+    const q = searchInput.value.trim().toLowerCase();
+    const sort = sortSel.value;
+    let list = allRepos.slice();
+    if(q){
+      list = list.filter(r=>{
+        const meta = metaMap[r.name] || {};
+        const hay = [r.name, r.description, meta.title, meta.desc, meta.h1]
+          .filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    list.sort((a,b)=>{
+      if(sort === "name") return a.name.localeCompare(b.name);
+      if(sort === "created") return new Date(b.created_at) - new Date(a.created_at);
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
+    renderCards(list);
+  }
+
+  function updateStats(repos){
+    $("#statTotal").textContent = repos.length;
+    if(repos.length){
+      const latest = repos.reduce((a,b)=> new Date(b.updated_at) > new Date(a.updated_at) ? b : a);
+      $("#statLatest").textContent = relativeTime(latest.updated_at);
+    }else{
+      $("#statLatest").textContent = "—";
+    }
+  }
+
+  // ---- 缓存 ----
+  function saveCache(repos){
+    try{ localStorage.setItem(CACHE_KEY, JSON.stringify({t:Date.now(), repos, meta:metaMap})); }catch(e){}
+  }
+  function loadCache(){
+    try{
+      const raw = localStorage.getItem(CACHE_KEY);
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      if(Date.now() - obj.t > CACHE_TTL) return null;
+      return obj;
+    }catch(e){ return null; }
+  }
+
+  // ---- 主流程 ----
+  async function load(force){
+    renderSkeleton(4);
+    refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
+    $("#statSync").textContent = "同步中…";
+
+    // 1) 先用缓存秒开
+    if(!force){
+      const cache = loadCache();
+      if(cache){
+        allRepos = filterReportRepos(cache.repos);
+        metaMap = cache.meta || {};
+        updateStats(allRepos);
+        applyFilter();
+        $("#statSync").textContent = "缓存";
+        // 后台静默刷新
+        refresh(false).then(()=>{});
+        return;
+      }
+    }
+    await refresh(true);
+  }
+
+  async function refresh(announce){
+    try{
+      const repos = await fetchRepos();
+      const reports = filterReportRepos(repos);
+      allRepos = reports;
+      updateStats(reports);
+
+      // 并发抓取每个报告页面的标题（增强展示）
+      const metas = await Promise.allSettled(
+        reports.map(r => fetchPageMeta(r.name).then(m => [r.name, m]))
+      );
+      metas.forEach(m=>{
+        if(m.status === "fulfilled" && m.value && m.value[1]){ metaMap[m.value[0]] = m.value[1]; }
+      });
+
+      saveCache(repos);
+      applyFilter();
+      $("#statSync").textContent = "已同步";
+      if(announce) toastShow(`已同步 ${reports.length} 篇报告`, "ok");
+    }catch(e){
+      $("#statSync").textContent = "失败";
+      if(e.message === "RATE_LIMIT"){
+        stateBox('<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+          "GitHub API 请求已达上限","未登录状态下每小时限 60 次请求，请稍后再试，或将页面部署到你的 GitHub Pages 上以获得更稳定的体验。","稍后重试","load(true)");
+        if(announce) toastShow("API 限流，请稍后重试", "err");
+      }else{
+        stateBox('<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+          "无法获取数据","请检查网络连接，或确认用户名 <code>"+escapeHtml(user)+"</code> 是否正确。","重新尝试","load(true)");
+        if(announce) toastShow("同步失败：" + e.message, "err");
+      }
+    }finally{
+      refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
+    }
+  }
+
+  // ---- 事件 ----
+  let searchTimer;
+  searchInput.addEventListener("input", ()=>{
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilter, 160);
+  });
+  sortSel.addEventListener("change", applyFilter);
+  refreshBtn.addEventListener("click", ()=> load(true));
+
+  // 启动
+  load(false);
+})();
+</script>
+</body>
+</html>
