@@ -446,8 +446,9 @@
     return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
 
-  function categorize(item){
-    const title = (item.title || "").toLowerCase();
+  function categorize(item, meta){
+    meta = meta || {};
+    const title = (meta.h1 || meta.desc || meta.title || item.title || "").toLowerCase();
     const fileName = (item.fileName || "").toLowerCase();
     // 优先按标题判断工具系统（排班、管理、系统类）
     if(/排班|schedule|系统|管理|工具|tool|员工|指定休/.test(title)) return {key:"tool",label:"工具系统"};
@@ -586,7 +587,8 @@
     const counts = {all:0, report:0, tool:0, other:0};
     items.forEach(it=>{
       counts.all++;
-      counts[categorize(it).key]++;
+      const meta = metaMap[it.url] || {};
+      counts[categorize(it, meta).key]++;
     });
     const list = [
       {key:"all", label:"全部"},
@@ -640,10 +642,11 @@
     }
     resultCount.textContent = `共 ${items.length} 个`;
     grid.innerHTML = items.map((it,i)=>{
-      const cat = categorize(it);
+      const cat = categorize(it, meta);
       const meta = metaMap[it.url] || {};
-      const title = meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
-      const desc = meta.desc || meta.h1 || it.repo.description || "—";
+      // 主标题优先用 h1 / description（更简洁的名称），长标题作为副标题
+      const shortTitle = meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
+      const subTitle = meta.title || meta.desc || meta.h1 || it.repo.description || "—";
       const delay = Math.min(i*50, 400);
       const key = escapeHtml(itemKey(it));
       const isIndex = it.fileName === "index.html" || it.fileName === "index.htm";
@@ -655,8 +658,8 @@
           <span class="badge ${cat.key}"><span class="dot"></span>${cat.label}</span>
           <span class="card-date" title="更新于 ${fmtDate(it.updatedAt)}">${relativeTime(it.updatedAt)}</span>
         </div>
-        <div class="card-title"><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(title)}</a></div>
-        <div class="card-desc">${escapeHtml(desc)}</div>
+        <div class="card-title"><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(shortTitle)}</a></div>
+        <div class="card-desc">${escapeHtml(subTitle)}</div>
         <div class="card-sub">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
           ${escapeHtml(it.repo.name)}<span class="sep">/</span>${escapeHtml(it.fileName)}${isIndex?'<span class="sep">(首页)</span>':''}
@@ -749,7 +752,7 @@
     const cachedItems = cache ? cache.items : [];
     trashBody.innerHTML = hidden.map(key=>{
       const it = cachedItems.find(x => itemKey(x) === key);
-      const name = it ? (metaMap[it.url]?.title || it.repo.description || key) : key;
+      const name = it ? (metaMap[it.url]?.h1 || metaMap[it.url]?.desc || metaMap[it.url]?.title || it.repo.description || key) : key;
       const repoName = key.split("/")[0];
       return `<div class="trash-item">
         <div class="info">
