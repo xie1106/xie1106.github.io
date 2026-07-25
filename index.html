@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>个人网页集合 · 自动同步</title>
-<meta name="description" content="自动收集 GitHub Pages 上发布的所有网页与项目，支持分类筛选与手动管理">
+<title>个人网页集合 · 手动同步</title>
+<meta name="description" content="手动收集 GitHub Pages 上发布的所有网页与项目，支持分类筛选与手动管理">
 <style>
   :root{
     --bg:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc;
@@ -270,7 +270,7 @@
            src="https://avatars.githubusercontent.com/u/270063882?v=4">
       <div>
         <h1>个人网页集合</h1>
-        <div class="sub">自动同步 <code id="userTag">xie1106</code> 的 GitHub Pages 网页 · 支持分类筛选与手动管理</div>
+        <div class="sub">手动同步 <code id="userTag">xie1106</code> 的 GitHub Pages 网页 · 支持分类筛选与手动管理</div>
       </div>
     </div>
     <div class="stats">
@@ -316,7 +316,7 @@
 </main>
 
 <footer class="footer">
-  <span class="live-dot">数据由 GitHub API 实时同步</span>
+  <span class="live-dot">数据由 GitHub API 手动同步</span>
   <span class="sep">·</span>
   自动收集每个仓库的独立网页，分页自动过滤
   <span class="sep">·</span>
@@ -361,7 +361,7 @@
 
 <script>
 /* ============================================================
- *  个人网页集合 · 自动收集器
+ *  个人网页集合 · 手动收集器
  *  1. 拉取 has_pages 仓库
  *  2. 通过 Contents API 扫描每个仓库根目录的所有 HTML 文件
  *  3. 抓取每个页面标题，标题与首页相同的分页自动过滤
@@ -860,21 +860,36 @@
   async function load(force){
     renderSkeleton(4);
     refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
-    $("#statSync").textContent = "同步中…";
+    $("#statSync").textContent = "加载中…";
 
-    if(!force){
-      const cache = loadCache();
-      if(cache){
-        allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
-        metaMap = cache.meta || {};
-        updateStats(allItems);
-        renderChips(allItems);
-        applyFilter();
-        $("#statSync").textContent = "缓存";
-        refresh(false).then(()=>{});
-        return;
-      }
+    // 有缓存就直接显示缓存，不自动同步
+    const cache = loadAnyCache();
+    if(cache){
+      allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
+      metaMap = cache.meta || {};
+      updateStats(allItems);
+      renderChips(allItems);
+      applyFilter();
+      const cacheTime = new Date(cache.t);
+      const timeStr = cacheTime.getMonth()+1 + "月" + cacheTime.getDate() + "日 " + cacheTime.getHours().toString().padStart(2,"0")+":"+cacheTime.getMinutes().toString().padStart(2,"0");
+      $("#statSync").textContent = "缓存 "+timeStr;
+      refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
+      return;
     }
+
+    // 无缓存时显示引导
+    if(!force){
+      stateBox('<circle cx="11" cy="11" r="7"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/>',
+        "点击同步开始收集","首次使用请点击上方「同步」按钮，收集你的 GitHub Pages 网页。","立即同步","load(true)");
+      $("#statSync").textContent = "未同步";
+      $("#statLatest").textContent = "—";
+      $("#statCount").textContent = "0";
+      resultCount.textContent = "";
+      refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
+      return;
+    }
+
+    // 强制刷新时调用 API
     await refresh(true);
   }
 
