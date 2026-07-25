@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>个人网页集合 · 自动同步</title>
-<meta name="description" content="自动收集 GitHub Pages 上发布的所有网页与项目，支持分类筛选与手动管理">
+<title>个人网页集合</title>
+<meta name="description" content="自动收集 GitHub Pages 网页，支持分类筛选与手动管理">
 <style>
   :root{
     --bg:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc;
     --text:#0f172a; --muted:#64748b; --muted-2:#94a3b8;
     --accent:#6366f1; --accent-dark:#4f46e5; --accent-soft:#eef2ff;
     --border:#e2e8f0; --border-2:#cbd5e1;
-    --green:#10b981; --amber:#f59e0b; --rose:#f43f5e; --sky:#0ea5e9;
+    --green:#10b981; --rose:#f43f5e; --sky:#0ea5e9;
     --shadow:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
     --shadow-md:0 4px 12px rgba(15,23,42,.08);
     --shadow-lg:0 18px 40px rgba(15,23,42,.14);
-    --radius:18px; --radius-sm:12px;
+    --radius:16px; --radius-sm:10px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
@@ -28,63 +28,50 @@
   button{font-family:inherit;cursor:pointer;border:none;background:none}
   input,select{font-family:inherit}
 
-  /* ===== Hero ===== */
-  .hero{
+  /* ===== Header ===== */
+  .header{
     position:relative;overflow:hidden;color:#fff;
     background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 45%,#7c3aed 100%);
-    padding:56px 24px 96px;
+    padding:32px 24px;
   }
-  .hero::after{
+  .header::after{
     content:"";position:absolute;inset:0;pointer-events:none;
-    background-image:radial-gradient(circle at 20% 20%,rgba(255,255,255,.14),transparent 40%),
-                     radial-gradient(circle at 80% 0%,rgba(56,189,248,.18),transparent 45%);
+    background-image:radial-gradient(circle at 20% 20%,rgba(255,255,255,.12),transparent 40%),
+                     radial-gradient(circle at 80% 0%,rgba(56,189,248,.14),transparent 45%);
   }
-  .hero-inner{max-width:1180px;margin:0 auto;position:relative;z-index:1}
-  .hero-top{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-  .avatar{
-    width:64px;height:64px;border-radius:18px;object-fit:cover;
-    border:2px solid rgba(255,255,255,.4);box-shadow:0 8px 24px rgba(0,0,0,.3);
-  }
-  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2}
-  .hero .sub{font-size:15px;color:rgba(255,255,255,.78);margin-top:6px;font-weight:400}
-  .hero .sub code{background:rgba(255,255,255,.16);padding:2px 8px;border-radius:6px;font-size:13px}
-  .stats{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
-  .stat{
-    background:rgba(255,255,255,.12);backdrop-filter:blur(8px);
-    border:1px solid rgba(255,255,255,.18);border-radius:14px;
-    padding:12px 18px;min-width:120px;
-  }
-  .stat .num{font-size:24px;font-weight:800;line-height:1}
-  .stat .lbl{font-size:12px;color:rgba(255,255,255,.7);margin-top:5px}
+  .header-inner{max-width:1180px;margin:0 auto;position:relative;z-index:1;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .header-inner h1{font-size:22px;font-weight:800;letter-spacing:-.3px}
+  .header-inner .sub{font-size:13px;color:rgba(255,255,255,.72);margin-top:2px}
+  .header-inner .sub code{background:rgba(255,255,255,.16);padding:1px 7px;border-radius:5px;font-size:12px}
 
   /* ===== Toolbar ===== */
-  .toolbar-wrap{max-width:1180px;margin:-52px auto 0;padding:0 24px;position:relative;z-index:2}
+  .toolbar-wrap{max-width:1180px;margin:20px auto 0;padding:0 24px}
   .toolbar{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-    box-shadow:var(--shadow-lg);padding:16px 18px;
-    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    box-shadow:var(--shadow);padding:14px 16px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   }
   .search{
-    flex:1;min-width:220px;display:flex;align-items:center;gap:10px;
-    background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;
+    flex:1;min-width:200px;display:flex;align-items:center;gap:9px;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;
     transition:border-color .2s,box-shadow .2s;
   }
   .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .search svg{flex:none;opacity:.5}
-  .search input{border:none;background:none;outline:none;width:100%;font-size:15px;color:var(--text)}
+  .search svg{flex:none;opacity:.45}
+  .search input{border:none;background:none;outline:none;width:100%;font-size:14px;color:var(--text)}
   .search input::placeholder{color:var(--muted-2)}
-  .tool-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tool-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .sort-sel{
-    background:var(--surface-2);border:1px solid var(--border);border-radius:12px;
-    padding:10px 14px;font-size:14px;color:var(--text);outline:none;cursor:pointer;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+    padding:9px 12px;font-size:13px;color:var(--text);outline:none;cursor:pointer;
     appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;
   }
   .btn{
-    display:inline-flex;align-items:center;gap:7px;
-    border:1px solid var(--border);border-radius:12px;padding:10px 16px;
-    font-size:14px;font-weight:600;color:var(--text);background:var(--surface);
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid var(--border);border-radius:10px;padding:9px 13px;
+    font-size:13px;font-weight:600;color:var(--text);background:var(--surface);
     transition:all .18s;
   }
   .btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
@@ -92,132 +79,126 @@
   .btn svg{flex:none}
   .btn-trash{position:relative}
   .btn-trash .badge-count{
-    position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;
-    background:var(--rose);color:#fff;font-size:11px;font-weight:700;
-    border-radius:9px;display:flex;align-items:center;justify-content:center;
+    position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;
+    background:var(--rose);color:#fff;font-size:10px;font-weight:700;
+    border-radius:8px;display:flex;align-items:center;justify-content:center;
     border:2px solid var(--surface);
   }
-  .result-count{font-size:13px;color:var(--muted);margin-left:auto;white-space:nowrap}
+  .result-count{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
 
   /* ===== Chips ===== */
-  .chips{display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:2px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;width:100%;margin-top:2px}
   .chip{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;
+    display:inline-flex;align-items:center;gap:5px;
+    padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;
     background:var(--surface-2);border:1px solid var(--border);color:var(--muted);
     cursor:pointer;transition:all .18s;white-space:nowrap;
   }
   .chip:hover{border-color:var(--border-2);color:var(--text)}
   .chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
-  .chip .count{font-size:11px;font-weight:700;background:rgba(0,0,0,.08);padding:1px 7px;border-radius:10px}
+  .chip .count{font-size:10px;font-weight:700;background:rgba(0,0,0,.08);padding:1px 6px;border-radius:9px}
   .chip.active .count{background:rgba(255,255,255,.25)}
 
   /* ===== Main ===== */
-  .main{max-width:1180px;margin:0 auto;padding:28px 24px 80px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px}
+  .main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 
   .card{
     position:relative;background:var(--surface);border:1px solid var(--border);
-    border-radius:var(--radius);padding:22px;
-    display:flex;flex-direction:column;gap:12px;
-    transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s,border-color .22s;
+    border-radius:var(--radius);padding:18px;
+    display:flex;flex-direction:column;gap:10px;
+    transition:transform .2s,box-shadow .2s,border-color .2s;
     overflow:hidden;
   }
-  .card::before{
-    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
-    background:linear-gradient(var(--accent),var(--sky));
-    transform:scaleY(0);transform-origin:top;transition:transform .3s;
-  }
-  .card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:transparent}
-  .card:hover::before{transform:scaleY(1)}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:transparent}
   .card:hover .card-del{opacity:1;pointer-events:auto}
   .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .badge{
-    display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
-    padding:4px 11px;border-radius:20px;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:20px;white-space:nowrap;
   }
   .badge.report{background:#eef2ff;color:#4f46e5}
   .badge.tool{background:#ecfdf5;color:#059669}
   .badge.other{background:#fff7ed;color:#c2410c}
-  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
-  .card-date{font-size:12px;color:var(--muted-2);white-space:nowrap}
+  .badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+  .card-date{font-size:11px;color:var(--muted-2);white-space:nowrap}
   .card-del{
-    position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;
+    position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:7px;
     display:flex;align-items:center;justify-content:center;
     background:var(--surface-2);border:1px solid var(--border);color:var(--muted-2);
     opacity:0;transition:all .18s;z-index:3;
   }
   .card-del:hover{background:var(--rose);border-color:var(--rose);color:#fff}
-  .card-title{font-size:18px;font-weight:700;line-height:1.35;letter-spacing:-.2px;padding-right:36px}
+  .card-title{font-size:16px;font-weight:700;line-height:1.35;letter-spacing:-.2px;padding-right:30px}
   .card-title a:hover{color:var(--accent)}
   .card-desc{
-    font-size:14px;color:var(--muted);line-height:1.6;
-    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+    font-size:13px;color:var(--muted);line-height:1.5;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
     flex:1;
   }
   .card-desc.card-time{
-    display:inline-flex;align-items:center;gap:6px;
-    font-size:13px;color:var(--muted-2);
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:12px;color:var(--muted-2);
     -webkit-line-clamp:unset;
   }
   .card-sub{
     font-size:11px;color:var(--muted-2);font-family:'SFMono-Regular',Consolas,monospace;
-    display:inline-flex;align-items:center;gap:6px;
+    display:inline-flex;align-items:center;gap:5px;
   }
-  .card-sub .sep{opacity:.4}
-  .card-foot{display:flex;align-items:center;gap:10px;margin-top:4px}
+  .card-sub .sep{opacity:.35}
+  .card-foot{display:flex;align-items:center;gap:8px;margin-top:2px}
   .btn-primary{
-    flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    background:var(--accent);color:#fff;border-radius:11px;padding:10px 16px;
-    font-size:14px;font-weight:600;transition:background .18s,transform .12s;
+    flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--accent);color:#fff;border-radius:9px;padding:8px 14px;
+    font-size:13px;font-weight:600;transition:background .18s,transform .12s;
   }
   .btn-primary:hover{background:var(--accent-dark)}
   .btn-primary:active{transform:scale(.97)}
   .btn-ghost{
-    display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    border:1px solid var(--border);border-radius:11px;padding:10px 14px;
-    font-size:13px;font-weight:600;color:var(--muted);transition:all .18s;
+    display:inline-flex;align-items:center;justify-content:center;gap:5px;
+    border:1px solid var(--border);border-radius:9px;padding:8px 12px;
+    font-size:12px;font-weight:600;color:var(--muted);transition:all .18s;
   }
   .btn-ghost:hover{border-color:var(--border-2);color:var(--text);background:var(--surface-2)}
 
   .card-confirm{
     position:absolute;inset:0;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
-    z-index:5;padding:24px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    z-index:5;padding:20px;text-align:center;
   }
-  .card-confirm p{font-size:14px;color:var(--text);font-weight:600}
-  .card-confirm .actions{display:flex;gap:10px}
-  .btn-danger{background:var(--rose);color:#fff;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;transition:background .18s}
+  .card-confirm p{font-size:13px;color:var(--text);font-weight:600}
+  .card-confirm .actions{display:flex;gap:8px}
+  .btn-danger{background:var(--rose);color:#fff;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600;transition:background .18s}
   .btn-danger:hover{background:#e11d48}
-  .btn-cancel{background:var(--surface-2);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600}
+  .btn-cancel{background:var(--surface-2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:600}
   .btn-cancel:hover{color:var(--text)}
 
-  .skel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;gap:14px}
-  .skel{background:linear-gradient(90deg,#eef2f6 25%,#e2e8f0 37%,#eef2f6 63%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+  .skel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px}
+  .skel{background:linear-gradient(90deg,#eef2f6 25%,#e2e8f0 37%,#eef2f6 63%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
   @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
-  .skel-badge{width:84px;height:24px}
-  .skel-title{width:75%;height:20px}
-  .skel-desc{width:100%;height:14px}
-  .skel-desc2{width:60%;height:14px}
-  .skel-foot{width:100%;height:40px;border-radius:11px}
+  .skel-badge{width:72px;height:20px}
+  .skel-title{width:70%;height:18px}
+  .skel-desc{width:100%;height:12px}
+  .skel-desc2{width:55%;height:12px}
+  .skel-foot{width:100%;height:36px;border-radius:9px}
 
-  .state-box{text-align:center;padding:80px 24px;color:var(--muted);grid-column:1/-1}
-  .state-box .ico{width:64px;height:64px;margin:0 auto 18px;opacity:.4}
-  .state-box h3{font-size:18px;color:var(--text);margin-bottom:8px}
-  .state-box p{font-size:14px;max-width:380px;margin:0 auto 18px}
-  .card-enter{animation:fadeUp .5s cubic-bezier(.2,.7,.3,1) both}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .state-box{text-align:center;padding:60px 24px;color:var(--muted);grid-column:1/-1}
+  .state-box .ico{width:52px;height:52px;margin:0 auto 14px;opacity:.4}
+  .state-box h3{font-size:16px;color:var(--text);margin-bottom:6px}
+  .state-box p{font-size:13px;max-width:340px;margin:0 auto 14px}
+  .card-enter{animation:fadeUp .45s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
   .toast{
-    position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
-    background:#0f172a;color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:#0f172a;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;
     box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:all .3s;z-index:60;
-    display:flex;align-items:center;gap:9px;
+    display:flex;align-items:center;gap:8px;
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast.ok .dotc{background:var(--green)}
   .toast.err .dotc{background:var(--rose)}
-  .toast .dotc{width:8px;height:8px;border-radius:50%;background:var(--sky)}
+  .toast .dotc{width:7px;height:7px;border-radius:50%;background:var(--sky)}
 
   .modal-mask{
     position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);
@@ -226,35 +207,32 @@
   }
   .modal-mask.show{display:flex;opacity:1}
   .modal{
-    background:var(--surface);border-radius:20px;box-shadow:var(--shadow-lg);
+    background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);
     width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;
     transform:scale(.95);transition:transform .25s;
   }
   .modal-mask.show .modal{transform:scale(1)}
-  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid var(--border)}
-  .modal-head h3{font-size:18px;font-weight:700}
-  .modal-close{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .18s}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--border)}
+  .modal-head h3{font-size:16px;font-weight:700}
+  .modal-close{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .18s}
   .modal-close:hover{background:var(--surface-2);color:var(--text)}
-  .modal-body{padding:16px 24px;overflow-y:auto;flex:1}
-  .modal-body .empty{text-align:center;color:var(--muted-2);padding:40px 0;font-size:14px}
-  .trash-item{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+  .modal-body{padding:14px 22px;overflow-y:auto;flex:1}
+  .modal-body .empty{text-align:center;color:var(--muted-2);padding:36px 0;font-size:13px}
+  .trash-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
   .trash-item:last-child{border-bottom:none}
   .trash-item .info{flex:1;min-width:0}
-  .trash-item .name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .trash-item .repo{font-size:12px;color:var(--muted-2);font-family:'SFMono-Regular',Consolas,monospace}
-  .btn-restore{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--green);color:var(--green);border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;transition:all .18s;flex:none}
+  .trash-item .name{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trash-item .repo{font-size:11px;color:var(--muted-2);font-family:'SFMono-Regular',Consolas,monospace}
+  .btn-restore{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;transition:all .18s;flex:none}
   .btn-restore:hover{background:var(--green);color:#fff}
 
-  .footer{max-width:1180px;margin:0 auto;padding:24px;text-align:center;color:var(--muted-2);font-size:13px}
+  .footer{max-width:1180px;margin:0 auto;padding:20px 24px;text-align:center;color:var(--muted-2);font-size:12px}
   .footer a{color:var(--accent);font-weight:600}
-  .footer .sep{margin:0 8px;opacity:.5}
-  .live-dot{display:inline-flex;align-items:center;gap:6px}
-  .live-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,.2);animation:pulse 2s infinite}
-  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
+  .footer .sep{margin:0 6px;opacity:.4}
 
   @media(max-width:600px){
-    .hero{padding:40px 20px 88px}
-    .hero h1{font-size:24px}
+    .header{padding:24px 16px}
+    .header-inner h1{font-size:18px}
     .toolbar-wrap,.main,.footer{padding-left:16px;padding-right:16px}
     .result-count{width:100%;margin-left:0}
     .card-del{opacity:1}
@@ -263,20 +241,11 @@
 </head>
 <body>
 
-<header class="hero">
-  <div class="hero-inner">
-    <div class="hero-top">
-      <img class="avatar" id="avatar" alt="avatar"
-           src="https://avatars.githubusercontent.com/u/270063882?v=4">
-      <div>
-        <h1>个人网页集合</h1>
-        <div class="sub">自动同步 <code id="userTag">xie1106</code> 的 GitHub Pages 网页 · 支持分类筛选与手动管理</div>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><div class="num" id="statTotal">—</div><div class="lbl">收录网页</div></div>
-      <div class="stat"><div class="num" id="statLatest">—</div><div class="lbl">最近更新</div></div>
-      <div class="stat"><div class="num" id="statSync">—</div><div class="lbl">同步状态</div></div>
+<header class="header">
+  <div class="header-inner">
+    <div>
+      <h1>个人网页集合</h1>
+      <div class="sub">自动同步 <code id="userTag">xie1106</code> 的 GitHub Pages 网页 · 支持分类筛选与手动管理</div>
     </div>
   </div>
 </header>
@@ -284,7 +253,7 @@
 <div class="toolbar-wrap">
   <div class="toolbar">
     <div class="search">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       <input id="searchInput" type="text" placeholder="搜索网页标题、描述、仓库名…">
     </div>
     <div class="tool-group">
@@ -294,16 +263,16 @@
         <option value="name">名称排序</option>
       </select>
       <button class="btn" id="refreshBtn" title="重新同步">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
         同步
       </button>
       <button class="btn btn-trash" id="trashBtn" title="回收站">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
         回收站
         <span class="badge-count" id="trashCount" style="display:none">0</span>
       </button>
-      <button class="btn" id="tokenBtn" title="GitHub Token 设置（可选，提升 API 限额）">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <button class="btn" id="tokenBtn" title="GitHub Token 设置">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
     <div class="result-count" id="resultCount"></div>
@@ -316,11 +285,7 @@
 </main>
 
 <footer class="footer">
-  <span class="live-dot">数据由 GitHub API 自动同步</span>
-  <span class="sep">·</span>
-  自动收集每个仓库的独立网页，分页自动过滤
-  <span class="sep">·</span>
-  已删除的网页可在回收站恢复
+  自动收集 GitHub Pages 网页 · 分页自动过滤 · 已删除的网页可在回收站恢复
 </footer>
 
 <div class="modal-mask" id="trashModal">
@@ -328,7 +293,7 @@
     <div class="modal-head">
       <h3>回收站</h3>
       <button class="modal-close" id="modalCloseBtn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
     <div class="modal-body" id="trashBody"></div>
@@ -336,55 +301,22 @@
 </div>
 
 <div class="modal-mask" id="tokenModal">
-  <div class="modal" style="max-width:460px">
+  <div class="modal" style="max-width:420px">
     <div class="modal-head">
       <h3>GitHub Token 设置</h3>
       <button class="modal-close" id="tokenCloseBtn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="modal-body" style="padding:24px">
-      <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">
+    <div class="modal-body" style="padding:20px">
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
         未登录状态下 GitHub API 每小时限 60 次请求。填写 Token 后提升至 5000 次/小时，可避免同步失败。<br>
         <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">点此创建 Token</a>，勾选 <code>public_repo</code> 权限即可。
       </p>
-      <input id="tokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;font-family:'SFMono-Regular',Consolas,monospace;font-size:14px;margin-bottom:16px" autocomplete="off">
-      <div style="display:flex;gap:10px;justify-content:flex-end">
+      <input id="tokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;margin-bottom:14px" autocomplete="off">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" id="tokenClearBtn" style="border:1px solid var(--border)">清除 Token</button>
         <button class="btn btn-primary" id="tokenSaveBtn" style="background:var(--accent);color:#fff;border:none">保存</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-mask" id="shareModal">
-  <div class="modal" style="max-width:380px">
-    <div class="modal-head">
-      <h3>分享网页</h3>
-      <button class="modal-close" id="shareCloseBtn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="modal-body" style="padding:24px;text-align:center">
-      <h4 id="shareTitle" style="font-size:16px;font-weight:700;margin-bottom:18px;line-height:1.4"></h4>
-      <div id="shareQrBox" style="margin:0 auto 16px;width:180px;height:180px;position:relative">
-        <img id="shareQrImg" src="" alt="二维码" style="width:180px;height:180px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2)" />
-        <div id="shareQrFallback" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:var(--surface-2);border-radius:12px;border:1px solid var(--border)">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--muted-2)" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7M14 21h7"/></svg>
-          <span style="font-size:12px;color:var(--muted-2)">二维码加载失败</span>
-        </div>
-      </div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">扫描二维码或复制链接，直接打开网页</p>
-      <input id="shareUrlInput" readonly style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;margin-bottom:16px;color:var(--muted);background:var(--surface-2)" />
-      <div style="display:flex;gap:10px">
-        <button class="btn" id="shareCopyBtn" style="flex:1;background:var(--accent);color:#fff;border:none">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          复制链接
-        </button>
-        <a class="btn" id="shareOpenBtn" target="_blank" rel="noopener" style="flex:1;background:var(--green);color:#fff;border:none;justify-content:center">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          直接打开
-        </a>
       </div>
     </div>
   </div>
@@ -432,14 +364,6 @@
   const tokenSaveBtn = $("#tokenSaveBtn");
   const tokenClearBtn = $("#tokenClearBtn");
   const tokenCloseBtn = $("#tokenCloseBtn");
-  const shareModal = $("#shareModal");
-  const shareCloseBtn = $("#shareCloseBtn");
-  const shareTitle = $("#shareTitle");
-  const shareQrImg = $("#shareQrImg");
-  const shareQrFallback = $("#shareQrFallback");
-  const shareUrlInput = $("#shareUrlInput");
-  const shareCopyBtn = $("#shareCopyBtn");
-  const shareOpenBtn = $("#shareOpenBtn");
   const TOKEN_KEY = `reporthub:token`;
   $("#userTag").textContent = user;
 
@@ -464,7 +388,6 @@
 
   // ---- 工具函数 ----
   function pageUrl(repoName, fileName){
-    // index.html -> 仓库根；其他 -> /repo/file
     if(fileName === "index.html" || fileName === "index.htm") return `${PAGES_BASE}/${repoName}/`;
     return `${PAGES_BASE}/${repoName}/${fileName}`;
   }
@@ -489,18 +412,15 @@
   }
 
   function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&quot;","'":"&#39;"}[c]));
   }
 
   function categorize(item, meta){
     meta = meta || {};
     const title = (meta.h1 || meta.desc || meta.title || item.title || "").toLowerCase();
     const fileName = (item.fileName || "").toLowerCase();
-    // 优先按标题判断工具系统（排班、管理、系统类）
     if(/排班|schedule|系统|管理|工具|tool|员工|指定休/.test(title)) return {key:"tool",label:"工具系统"};
-    // 再按标题判断分析报告（报告、分析、看板类）
     if(/报告|分析|report|analysis|总结|看板|dashboard|商品|搬仓/.test(title)) return {key:"report",label:"分析报告"};
-    // 兜底：按文件名和仓库名综合判断
     const full = (item.repo.name + " " + (item.repo.description||"") + " " + fileName + " " + title).toLowerCase();
     if(/系统|排班|schedule|管理|工具|system|tool/.test(full)) return {key:"tool",label:"工具系统"};
     if(/报告|分析|report|analysis|总结|看板/.test(full)) return {key:"report",label:"分析报告"};
@@ -581,7 +501,6 @@
 
   // 过滤分页：同一仓库下，非首页文件如果标题与首页相同，视为分页，不收录
   function filterSubpages(items){
-    // 先收集每个仓库首页的标题
     const repoIndexTitles = {};
     items.forEach(it => {
       if(it.fileName === "index.html" || it.fileName === "index.htm"){
@@ -590,16 +509,12 @@
         if(title) repoIndexTitles[it.repo.name] = title;
       }
     });
-    // 过滤掉标题与首页相同的非首页文件
     return items.filter(it => {
-      // 首页始终保留
       if(it.fileName === "index.html" || it.fileName === "index.htm") return true;
       const meta = metaMap[it.url] || {};
       const title = (meta.title || "").trim();
       const indexTitle = repoIndexTitles[it.repo.name];
-      // 没有首页标题或没有该文件标题时，保留（无法判断是否为分页）
       if(!indexTitle || !title) return true;
-      // 标题与首页相同 → 分页，过滤掉
       return title !== indexTitle;
     });
   }
@@ -607,43 +522,37 @@
   // 构建网页项列表
   async function buildItems(repos){
     const items = [];
-    // 并发扫描所有仓库的 HTML 文件
-    const fileLists = await Promise.allSettled(
-      repos.map(r => fetchRepoHtmlFiles(r.name).then(files => [r, files]))
-    );
-    fileLists.forEach(fl=>{
-      if(fl.status !== "fulfilled") return;
-      const [repo, files] = fl.value;
-      files.forEach(fileName => {
-        const url = pageUrl(repo.name, fileName);
-        items.push({
-          repo,
-          fileName,
-          url,
-          title: "",
-          desc: repo.description || "",
-          updatedAt: repo.updated_at,
-          createdAt: repo.created_at
+    await Promise.all(
+      repos.map(async repo => {
+        const htmlFiles = await fetchRepoHtmlFiles(repo.name);
+        htmlFiles.forEach(fn => {
+          items.push({
+            repo, fileName: fn,
+            url: pageUrl(repo.name, fn),
+            title: repo.name,
+            desc: repo.description || "",
+            updatedAt: repo.updated_at,
+            createdAt: repo.created_at
+          });
         });
-      });
-    });
+      })
+    );
     return items;
   }
 
+  // 筛选 has_pages 且非模板的仓库
   function filterRepos(repos){
-    return repos
-      .filter(r => r.has_pages && !r.archived)
-      .filter(r => !r.is_template)
-      .filter(r => r.name !== `${user}.github.io`);
+    return repos.filter(r => r.has_pages && !r.is_template && !r.fork && !r.archived);
   }
 
-  // ---- 渲染：分类 chips ----
+  // ---- 渲染：分类标签 ----
   function renderChips(items){
     const counts = {all:0, report:0, tool:0, other:0};
-    items.forEach(it=>{
+    items.forEach(it => {
+      if(hiddenSet.has(itemKey(it))) return;
       counts.all++;
-      const meta = metaMap[it.url] || {};
-      counts[categorize(it, meta).key]++;
+      const cat = categorize(it, metaMap[it.url]);
+      counts[cat.key] = (counts[cat.key] || 0) + 1;
     });
     const list = [
       {key:"all", label:"全部"},
@@ -665,7 +574,7 @@
     });
   }
 
-  // ---- 渲染：卡片 ----
+  // ---- 渲染：骨架屏 / 空状态 ----
   function renderSkeleton(n){
     let h = "";
     for(let i=0;i<n;i++){
@@ -688,6 +597,7 @@
     </div>`;
   }
 
+  // ---- 渲染：卡片 ----
   function renderCards(items){
     if(!items.length){
       stateBox('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
@@ -699,15 +609,13 @@
     grid.innerHTML = items.map((it,i)=>{
       const meta = metaMap[it.url] || {};
       const cat = categorize(it, meta);
-      // 主标题优先用 h1 / description（更简洁的名称），长标题作为副标题
       const shortTitle = meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
-      const subTitle = meta.title || meta.desc || meta.h1 || it.repo.description || "—";
       const delay = Math.min(i*50, 400);
       const key = escapeHtml(itemKey(it));
       const isIndex = it.fileName === "index.html" || it.fileName === "index.htm";
       return `<article class="card card-enter" style="animation-delay:${delay}ms" data-key="${key}">
         <button class="card-del" data-del="${key}" title="删除">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
         <div class="card-head">
           <span class="badge ${cat.key}"><span class="dot"></span>${cat.label}</span>
@@ -715,24 +623,24 @@
         </div>
         <div class="card-title"><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(shortTitle)}</a></div>
         <div class="card-desc card-time">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           更新于 ${fmtDate(it.updatedAt)}
         </div>
         <div class="card-sub">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
           ${escapeHtml(it.repo.name)}<span class="sep">/</span>${escapeHtml(it.fileName)}${isIndex?'<span class="sep">(首页)</span>':''}
         </div>
         <div class="card-foot">
           <a class="btn-primary" href="${it.url}" target="_blank" rel="noopener">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             查看网页
           </a>
           <button class="btn-ghost" data-share="${escapeHtml(it.url)}" title="复制链接分享">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             分享
           </button>
           <a class="btn-ghost" href="${it.repo.html_url}" target="_blank" rel="noopener" title="查看源码仓库">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             源码
           </a>
         </div>
@@ -747,12 +655,20 @@
     });
 
     grid.querySelectorAll("[data-share]").forEach(btn=>{
-      btn.addEventListener("click", e=>{
+      btn.addEventListener("click", async e=>{
         e.stopPropagation();
         const url = btn.dataset.share;
-        const card = btn.closest(".card");
-        const title = card.querySelector(".card-title")?.textContent?.trim() || "网页";
-        openShare(url, title);
+        try{
+          await navigator.clipboard.writeText(url);
+          toastShow("链接已复制到剪贴板 ✓", "ok");
+        }catch{
+          const ta = document.createElement("textarea");
+          ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          toastShow("链接已复制到剪贴板 ✓", "ok");
+        }
       });
     });
   }
@@ -767,7 +683,7 @@
     const overlay = document.createElement("div");
     overlay.className = "card-confirm";
     overlay.innerHTML = `
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
       <p>确定要删除「${escapeHtml(key)}」吗？<br>删除后可在回收站恢复。</p>
       <div class="actions">
         <button class="btn-cancel">取消</button>
@@ -809,7 +725,7 @@
           <div class="repo">${escapeHtml(key)}</div>
         </div>
         <button class="btn-restore" data-restore="${escapeHtml(key)}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
           恢复
         </button>
       </div>`;
@@ -823,7 +739,6 @@
         btn.closest(".trash-item").style.opacity = "0";
         setTimeout(()=>{
           renderTrash();
-          // 从缓存恢复已删除的项到 allItems
           const cache = loadCache();
           if(cache){
             const cachedItem = cache.items.find(x => itemKey(x) === key);
@@ -832,7 +747,6 @@
             }
           }
           renderChips(allItems);
-          updateStats(allItems);
           applyFilter();
         }, 300);
         toastShow(`已恢复「${key}」`, "ok");
@@ -864,17 +778,6 @@
     renderCards(list);
   }
 
-  function updateStats(items){
-    const visible = items.filter(it => !hiddenSet.has(itemKey(it)));
-    $("#statTotal").textContent = visible.length;
-    if(visible.length){
-      const latest = visible.reduce((a,b)=> new Date(b.updatedAt) > new Date(a.updatedAt) ? b : a);
-      $("#statLatest").textContent = relativeTime(latest.updatedAt);
-    }else{
-      $("#statLatest").textContent = "—";
-    }
-  }
-
   // ---- 缓存 ----
   function saveCache(items){
     try{ localStorage.setItem(CACHE_KEY, JSON.stringify({t:Date.now(), items, meta:metaMap})); }catch(e){}
@@ -888,7 +791,6 @@
       return obj;
     }catch(e){ return null; }
   }
-  // 加载任意缓存（忽略 TTL），用于 API 限流兜底
   function loadAnyCache(){
     try{
       const raw = localStorage.getItem(CACHE_KEY);
@@ -899,33 +801,24 @@
 
   // ---- 主流程 ----
   async function load(force){
-    // 先尝试显示缓存，让用户立即看到内容（不显示骨架屏）
     const cache = loadAnyCache();
     if(cache && cache.items && cache.items.length){
       allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
       metaMap = cache.meta || {};
-      updateStats(allItems);
       renderChips(allItems);
       applyFilter();
-      $("#statSync").textContent = "同步中…";
     }else{
       renderSkeleton(4);
-      $("#statSync").textContent = "加载中…";
     }
 
     refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
 
-    // 自动同步：缓存未过期（2小时内）且非强制刷新时，跳过 API 调用
     const cacheFresh = cache && (Date.now() - cache.t < CACHE_TTL);
     if(!force && cacheFresh){
-      const cacheTime = new Date(cache.t);
-      const timeStr = cacheTime.getMonth()+1 + "月" + cacheTime.getDate() + "日 " + cacheTime.getHours().toString().padStart(2,"0")+":"+cacheTime.getMinutes().toString().padStart(2,"0");
-      $("#statSync").textContent = "已同步 " + timeStr;
       refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
       return;
     }
 
-    // 自动调用 API 刷新数据
     await refresh(true);
   }
 
@@ -935,7 +828,6 @@
       const pageRepos = filterRepos(repos);
       const items = await buildItems(pageRepos);
 
-      // 抓取每个网页的标题
       const metas = await Promise.allSettled(
         items.map(it => fetchPageMeta(it.url).then(m => [it.url, m]))
       );
@@ -943,33 +835,23 @@
         if(m.status === "fulfilled" && m.value && m.value[1]){ metaMap[m.value[0]] = m.value[1]; }
       });
 
-      // 过滤分页：同一仓库下标题与首页相同的非首页文件不收录
       const filtered = filterSubpages(items);
-
       allItems = filtered.filter(it => !hiddenSet.has(itemKey(it)));
-      updateStats(allItems);
 
       saveCache(filtered);
       renderChips(allItems);
       applyFilter();
-      $("#statSync").textContent = "已同步";
       if(announce) toastShow(`已同步 ${allItems.length} 个网页`, "ok");
     }catch(e){
-      // 同步失败时，尝试加载本地缓存作为兜底
       const cache = loadAnyCache();
       if(cache){
         allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
         metaMap = cache.meta || {};
-        updateStats(allItems);
         renderChips(allItems);
         applyFilter();
-        const cacheTime = new Date(cache.t);
-        const timeStr = cacheTime.getHours().toString().padStart(2,"0")+":"+cacheTime.getMinutes().toString().padStart(2,"0");
-        $("#statSync").textContent = "缓存 "+timeStr;
-        toastShow(`API 限流，已显示 ${cache.t ? timeStr : ""} 的缓存数据。可点击设置添加 Token 提升限额。`, "err");
+        toastShow(`同步失败，已显示缓存数据`, "err");
         return;
       }
-      $("#statSync").textContent = "失败";
       if(e.message === "RATE_LIMIT"){
         stateBox('<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
           "GitHub API 请求已达上限","未登录每小时限 60 次。请点击上方 <b>⚙</b> 按钮添加 Token（5000次/小时），或稍后再试。","稍后重试","load(true)");
@@ -1028,40 +910,8 @@
     toastShow("Token 已清除", "ok");
   });
 
-  // ---- 分享弹窗 ----
-  function openShare(url, title){
-    shareTitle.textContent = title || "网页";
-    shareUrlInput.value = url;
-    shareOpenBtn.href = url;
-    // 二维码：用在线服务生成，扫码可直接进入网页
-    shareQrImg.style.display = "";
-    shareQrFallback.style.display = "none";
-    shareQrImg.onerror = ()=>{
-      shareQrImg.style.display = "none";
-      shareQrFallback.style.display = "flex";
-    };
-    shareQrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=" + encodeURIComponent(url);
-    shareModal.classList.add("show");
-  }
-
-  shareCloseBtn.addEventListener("click", ()=> shareModal.classList.remove("show"));
-  shareModal.addEventListener("click", e=>{
-    if(e.target === shareModal) shareModal.classList.remove("show");
-  });
-  shareCopyBtn.addEventListener("click", async ()=>{
-    const url = shareUrlInput.value;
-    try{
-      await navigator.clipboard.writeText(url);
-      toastShow("链接已复制到剪贴板 ✓", "ok");
-    }catch{
-      shareUrlInput.select();
-      document.execCommand("copy");
-      toastShow("链接已复制到剪贴板 ✓", "ok");
-    }
-  });
-
   document.addEventListener("keydown", e=>{
-    if(e.key === "Escape"){ trashModal.classList.remove("show"); tokenModal.classList.remove("show"); shareModal.classList.remove("show"); }
+    if(e.key === "Escape"){ trashModal.classList.remove("show"); tokenModal.classList.remove("show"); }
   });
 
   updateTrashCount();
