@@ -372,7 +372,7 @@
   const PAGES_BASE = `https://${user}.github.io`;
   const CACHE_KEY = `reporthub:v4:${user}`;
   const HIDDEN_KEY = `reporthub:hidden:v4:${user}`;
-  const CACHE_TTL = 1000 * 60 * 30;
+  const CACHE_TTL = 1000 * 60 * 120;
 
   const $ = s => document.querySelector(s);
   const grid = $("#grid");
@@ -813,6 +813,14 @@
       return obj;
     }catch(e){ return null; }
   }
+  // 加载任意缓存（忽略 TTL），用于 API 限流兜底
+  function loadAnyCache(){
+    try{
+      const raw = localStorage.getItem(CACHE_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){ return null; }
+  }
 
   // ---- 主流程 ----
   async function load(force){
@@ -862,10 +870,24 @@
       $("#statSync").textContent = "已同步";
       if(announce) toastShow(`已同步 ${allItems.length} 个网页`, "ok");
     }catch(e){
+      // 同步失败时，尝试加载本地缓存作为兜底
+      const cache = loadAnyCache();
+      if(cache){
+        allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
+        metaMap = cache.meta || {};
+        updateStats(allItems);
+        renderChips(allItems);
+        applyFilter();
+        const cacheTime = new Date(cache.t);
+        const timeStr = cacheTime.getHours().toString().padStart(2,"0")+":"+cacheTime.getMinutes().toString().padStart(2,"0");
+        $("#statSync").textContent = "缓存 "+timeStr;
+        toastShow(`API 限流，已显示 ${cache.t ? timeStr : ""} 的缓存数据。可点击设置添加 Token 提升限额。`, "err");
+        return;
+      }
       $("#statSync").textContent = "失败";
       if(e.message === "RATE_LIMIT"){
         stateBox('<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
-          "GitHub API 请求已达上限","未登录状态下每小时限 60 次请求，请稍后再试。","稍后重试","load(true)");
+          "GitHub API 请求已达上限","未登录每小时限 60 次。请点击上方 <b>⚙</b> 按钮添加 Token（5000次/小时），或稍后再试。","稍后重试","load(true)");
         if(announce) toastShow("API 限流，请稍后重试", "err");
       }else{
         stateBox('<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
