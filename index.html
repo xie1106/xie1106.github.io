@@ -697,8 +697,8 @@
     }
     resultCount.textContent = `共 ${items.length} 个`;
     grid.innerHTML = items.map((it,i)=>{
-      const cat = categorize(it, meta);
       const meta = metaMap[it.url] || {};
+      const cat = categorize(it, meta);
       // 主标题优先用 h1 / description（更简洁的名称），长标题作为副标题
       const shortTitle = meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
       const subTitle = meta.title || meta.desc || meta.h1 || it.repo.description || "—";
