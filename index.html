@@ -357,6 +357,39 @@
   </div>
 </div>
 
+<div class="modal-mask" id="shareModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head">
+      <h3>分享网页</h3>
+      <button class="modal-close" id="shareCloseBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="padding:24px;text-align:center">
+      <h4 id="shareTitle" style="font-size:16px;font-weight:700;margin-bottom:18px;line-height:1.4"></h4>
+      <div id="shareQrBox" style="margin:0 auto 16px;width:180px;height:180px;position:relative">
+        <img id="shareQrImg" src="" alt="二维码" style="width:180px;height:180px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2)" />
+        <div id="shareQrFallback" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:var(--surface-2);border-radius:12px;border:1px solid var(--border)">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--muted-2)" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7M14 21h7"/></svg>
+          <span style="font-size:12px;color:var(--muted-2)">二维码加载失败</span>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">扫描二维码或复制链接，直接打开网页</p>
+      <input id="shareUrlInput" readonly style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:10px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;margin-bottom:16px;color:var(--muted);background:var(--surface-2)" />
+      <div style="display:flex;gap:10px">
+        <button class="btn" id="shareCopyBtn" style="flex:1;background:var(--accent);color:#fff;border:none">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          复制链接
+        </button>
+        <a class="btn" id="shareOpenBtn" target="_blank" rel="noopener" style="flex:1;background:var(--green);color:#fff;border:none;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          直接打开
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><span class="dotc"></span><span id="toastMsg"></span></div>
 
 <script>
@@ -399,6 +432,14 @@
   const tokenSaveBtn = $("#tokenSaveBtn");
   const tokenClearBtn = $("#tokenClearBtn");
   const tokenCloseBtn = $("#tokenCloseBtn");
+  const shareModal = $("#shareModal");
+  const shareCloseBtn = $("#shareCloseBtn");
+  const shareTitle = $("#shareTitle");
+  const shareQrImg = $("#shareQrImg");
+  const shareQrFallback = $("#shareQrFallback");
+  const shareUrlInput = $("#shareUrlInput");
+  const shareCopyBtn = $("#shareCopyBtn");
+  const shareOpenBtn = $("#shareOpenBtn");
   const TOKEN_KEY = `reporthub:token`;
   $("#userTag").textContent = user;
 
@@ -706,21 +747,12 @@
     });
 
     grid.querySelectorAll("[data-share]").forEach(btn=>{
-      btn.addEventListener("click", async e=>{
+      btn.addEventListener("click", e=>{
         e.stopPropagation();
         const url = btn.dataset.share;
-        try{
-          await navigator.clipboard.writeText(url);
-          toastShow("链接已复制到剪贴板 ✓", "ok");
-        }catch{
-          // fallback: 使用 textarea 复制
-          const ta = document.createElement("textarea");
-          ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
-          document.body.appendChild(ta); ta.select();
-          document.execCommand("copy");
-          document.body.removeChild(ta);
-          toastShow("链接已复制到剪贴板 ✓", "ok");
-        }
+        const card = btn.closest(".card");
+        const title = card.querySelector(".card-title")?.textContent?.trim() || "网页";
+        openShare(url, title);
       });
     });
   }
@@ -996,8 +1028,40 @@
     toastShow("Token 已清除", "ok");
   });
 
+  // ---- 分享弹窗 ----
+  function openShare(url, title){
+    shareTitle.textContent = title || "网页";
+    shareUrlInput.value = url;
+    shareOpenBtn.href = url;
+    // 二维码：用在线服务生成，扫码可直接进入网页
+    shareQrImg.style.display = "";
+    shareQrFallback.style.display = "none";
+    shareQrImg.onerror = ()=>{
+      shareQrImg.style.display = "none";
+      shareQrFallback.style.display = "flex";
+    };
+    shareQrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=" + encodeURIComponent(url);
+    shareModal.classList.add("show");
+  }
+
+  shareCloseBtn.addEventListener("click", ()=> shareModal.classList.remove("show"));
+  shareModal.addEventListener("click", e=>{
+    if(e.target === shareModal) shareModal.classList.remove("show");
+  });
+  shareCopyBtn.addEventListener("click", async ()=>{
+    const url = shareUrlInput.value;
+    try{
+      await navigator.clipboard.writeText(url);
+      toastShow("链接已复制到剪贴板 ✓", "ok");
+    }catch{
+      shareUrlInput.select();
+      document.execCommand("copy");
+      toastShow("链接已复制到剪贴板 ✓", "ok");
+    }
+  });
+
   document.addEventListener("keydown", e=>{
-    if(e.key === "Escape"){ trashModal.classList.remove("show"); tokenModal.classList.remove("show"); }
+    if(e.key === "Escape"){ trashModal.classList.remove("show"); tokenModal.classList.remove("show"); shareModal.classList.remove("show"); }
   });
 
   updateTrashCount();
