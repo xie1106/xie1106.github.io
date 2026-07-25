@@ -155,6 +155,11 @@
     display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
     flex:1;
   }
+  .card-desc.card-time{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:13px;color:var(--muted-2);
+    -webkit-line-clamp:unset;
+  }
   .card-sub{
     font-size:11px;color:var(--muted-2);font-family:'SFMono-Regular',Consolas,monospace;
     display:inline-flex;align-items:center;gap:6px;
@@ -659,7 +664,10 @@
           <span class="card-date" title="更新于 ${fmtDate(it.updatedAt)}">${relativeTime(it.updatedAt)}</span>
         </div>
         <div class="card-title"><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(shortTitle)}</a></div>
-        <div class="card-desc">${escapeHtml(subTitle)}</div>
+        <div class="card-desc card-time">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          更新于 ${fmtDate(it.updatedAt)}
+        </div>
         <div class="card-sub">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
           ${escapeHtml(it.repo.name)}<span class="sep">/</span>${escapeHtml(it.fileName)}${isIndex?'<span class="sep">(首页)</span>':''}
