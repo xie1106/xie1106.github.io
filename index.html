@@ -505,9 +505,18 @@
     }catch(e){ return null; }
   }
 
+  // ---- 带超时的 fetch 封装 ----
+  function fetchWithTimeout(url, options, ms){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), ms || 12000);
+    return fetch(url, Object.assign({}, options, {signal:ctrl.signal}))
+      .then(res=>{ clearTimeout(t); return res; })
+      .catch(e=>{ clearTimeout(t); throw e; });
+  }
+
   // ---- 数据获取 ----
   async function fetchRepos(){
-    const res = await fetch(API_REPOS, {headers:apiHeaders()});
+    const res = await fetchWithTimeout(API_REPOS, {headers:apiHeaders()}, 12000);
     if(res.status === 403){
       const remain = res.headers.get("X-RateLimit-Remaining");
       if(remain === "0") throw new Error("RATE_LIMIT");
@@ -520,7 +529,7 @@
   // 扫描仓库根目录的所有 HTML 文件
   async function fetchRepoHtmlFiles(repoName){
     try{
-      const res = await fetch(API_CONTENTS(repoName), {headers:apiHeaders()});
+      const res = await fetchWithTimeout(API_CONTENTS(repoName), {headers:apiHeaders()}, 10000);
       if(!res.ok) return ["index.html"];
       const files = await res.json();
       if(!Array.isArray(files)) return ["index.html"];
