@@ -112,7 +112,7 @@
     display:flex;flex-direction:column;gap:10px;
     transition:transform .2s,box-shadow .2s,border-color .2s,opacity .2s;
     overflow:hidden;cursor:grab;
-    touch-action:none;user-select:none;-webkit-user-select:none;
+    touch-action:pan-y;user-select:none;-webkit-user-select:none;
   }
   .card:active{cursor:grabbing}
   .card.dragging{
@@ -307,7 +307,7 @@
 </main>
 
 <footer class="footer">
-  自动收集 GitHub Pages 网页 · 分页自动过滤 · 已删除的网页可在回收站恢复 · 长按卡片可拖拽排序
+  自动收集 GitHub Pages 网页 · 分页自动过滤 · 已删除的网页可在回收站恢复 · 手机长按卡片可拖拽排序 · 设置 Token 后置顶和排序跨设备同步
 </footer>
 
 <div class="modal-mask" id="trashModal">
@@ -333,6 +333,7 @@
     <div class="modal-body" style="padding:20px">
       <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
         未登录状态下 GitHub API 每小时限 60 次请求。填写 Token 后提升至 5000 次/小时，可避免同步失败。<br>
+        设置 Token 后，置顶和拖拽排序将自动同步到云端，实现跨设备共享。<br>
         <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">点此创建 Token</a>，勾选 <code>public_repo</code> 权限即可。
       </p>
       <input id="tokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;margin-bottom:14px" autocomplete="off">
@@ -367,6 +368,10 @@
   const HIDDEN_KEY = `reporthub:hidden:v4:${user}`;
   const ORDER_KEY = `reporthub:order:v4:${user}`;
   const CACHE_TTL = 1000 * 60 * 120;
+  // 云端同步：置顶 & 排序数据存储在仓库 _prefs.json 中
+  const PREFS_FILE = "_prefs.json";
+  const PREFS_API = `https://api.github.com/repos/${user}/${user}.github.io/contents/${PREFS_FILE}`;
+  const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
 
   const $ = s => document.querySelector(s);
   const grid = $("#grid");
@@ -426,6 +431,79 @@
   }
   function savePinnedOrder(){
     try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+    saveCloudPrefs();
+  }
+
+  // ---- 云端同步（置顶 & 排序跨设备同步）----
+  let cloudSaveTimer = null;
+  let cloudPrefsLoaded = false;
+
+  // 从云端加载置顶和排序
+  async function loadCloudPrefsAsync(){
+    try{
+      const res = await fetchWithTimeout(
+        `${PREFS_RAW}?t=${Date.now()}`,
+        {headers: apiHeaders()},
+        8000
+      );
+      if(!res.ok) return;
+      const cloud = await res.json();
+      if(!cloud || (!cloud.pinned && !cloud.order)) return;
+
+      // 云端数据存在，使用云端数据覆盖本地
+      pinnedList = cloud.pinned || [];
+      customOrder = cloud.order || [];
+      pinnedSet = new Set(pinnedList);
+      // 同步到本地缓存
+      try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+      cloudPrefsLoaded = true;
+      // 重新渲染
+      renderChips(allItems);
+      applyFilter();
+    }catch(e){ /* 静默失败，使用本地数据 */ }
+  }
+
+  // 保存置顶和排序到云端（防抖 2 秒）
+  function saveCloudPrefs(){
+    const token = getToken();
+    if(!token) return; // 没有 Token 不同步到云端
+
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(async ()=>{
+      try{
+        // 获取当前文件 sha（更新已有文件需要）
+        let sha = null;
+        try{
+          const getRes = await fetchWithTimeout(PREFS_API, {headers: apiHeaders()}, 8000);
+          if(getRes.ok){
+            const fileData = await getRes.json();
+            sha = fileData.sha;
+          }
+        }catch(e){}
+
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify({
+          pinned: pinnedList,
+          order: customOrder,
+          updated: new Date().toISOString()
+        }))));
+
+        const body = {
+          message: `chore: sync preferences [${new Date().toISOString()}]`,
+          content: content
+        };
+        if(sha) body.sha = sha;
+
+        const res = await fetchWithTimeout(PREFS_API, {
+          method: "PUT",
+          headers: Object.assign({}, apiHeaders(), {"Content-Type": "application/json"}),
+          body: JSON.stringify(body)
+        }, 15000);
+
+        if(res.ok){
+          toastShow("置顶和排序已同步到云端", "ok");
+        }
+      }catch(e){ /* 静默失败 */ }
+    }, 2000);
   }
   function togglePin(key){
     if(pinnedSet.has(key)){
@@ -765,7 +843,12 @@
   }
 
   // ---- 拖拽排序（Pointer Events，兼容桌面和移动端）----
+  // 触摸设备：长按 350ms 后进入拖拽模式，滑动时自动取消（不干扰滚动）
+  // 鼠标设备：移动超过 3px 即进入拖拽模式（保持灵敏）
   let dragState = null;
+  const LONG_PRESS_MS = 350;
+  const TOUCH_CANCEL_DIST = 10;
+  const MOUSE_START_DIST = 3;
 
   function attachDragEvents(){
     grid.querySelectorAll(".card").forEach(card=>{
@@ -774,7 +857,6 @@
   }
 
   function onPointerDown(e){
-    // 忽略按钮、链接上的操作
     if(e.target.closest("button, a, .card-confirm")) return;
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
@@ -783,40 +865,79 @@
       key: card.dataset.key,
       card,
       pointerId: e.pointerId,
+      pointerType: e.pointerType,
       startX: e.clientX,
       startY: e.clientY,
       offsetX: e.clientX - rect.left,
       offsetY: e.clientY - rect.top,
       cardWidth: rect.width,
       cardHeight: rect.height,
-      targetKey: null
+      targetKey: null,
+      started: false,
+      longPressTimer: null
     };
 
-    // 捕获指针，确保后续事件都发给当前元素
-    if(card.setPointerCapture){
-      try{ card.setPointerCapture(e.pointerId); }catch(err){}
+    if(e.pointerType === "touch"){
+      // 触摸设备：启动长按计时器，期间允许浏览器正常滚动
+      dragState.longPressTimer = setTimeout(()=>{
+        if(dragState && dragState.pointerId === e.pointerId && !dragState.started){
+          startDrag();
+        }
+      }, LONG_PRESS_MS);
     }
+    // 鼠标：在 pointermove 中判断，移动即进入拖拽
 
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", onPointerUp);
     document.addEventListener("pointercancel", onPointerUp);
   }
 
+  function startDrag(){
+    if(!dragState) return;
+    dragState.started = true;
+    dragState.card.classList.add("dragging");
+    grid.classList.add("drag-active");
+    // 进入拖拽模式后捕获指针，阻止页面滚动
+    if(dragState.card.setPointerCapture){
+      try{ dragState.card.setPointerCapture(dragState.pointerId); }catch(err){}
+    }
+    // 触觉反馈
+    if(dragState.pointerType === "touch" && navigator.vibrate){
+      navigator.vibrate(30);
+    }
+  }
+
   function onPointerMove(e){
     if(!dragState || e.pointerId !== dragState.pointerId) return;
 
-    // 立即进入拖拽模式，无阈值
-    if(!dragState.card.classList.contains("dragging")){
-      dragState.card.classList.add("dragging");
-      grid.classList.add("drag-active");
+    // 尚未进入拖拽模式
+    if(!dragState.started){
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if(dragState.pointerType === "touch"){
+        // 触摸设备：未长按时滑动超过阈值 → 视为滚动，取消拖拽意图
+        if(dist > TOUCH_CANCEL_DIST){
+          clearTimeout(dragState.longPressTimer);
+          cleanupDrag();
+        }
+        return;
+      } else {
+        // 鼠标：移动超过阈值即进入拖拽模式
+        if(dist > MOUSE_START_DIST){
+          startDrag();
+        } else {
+          return;
+        }
+      }
     }
 
-    // 卡片实时跟随手指/鼠标
+    // 拖拽模式中：卡片实时跟随
     const x = e.clientX - dragState.offsetX;
     const y = e.clientY - dragState.offsetY;
     dragState.card.style.position = "fixed";
     dragState.card.style.left = x + "px";
-    dragState.card.top = y + "px";
     dragState.card.style.top = y + "px";
     dragState.card.style.width = dragState.cardWidth + "px";
     dragState.card.style.pointerEvents = "none";
@@ -825,7 +946,6 @@
     const elBelow = document.elementFromPoint(e.clientX, e.clientY);
     const targetCard = elBelow?.closest(".card");
 
-    // 清除之前的高亮
     grid.querySelectorAll(".card.drop-target").forEach(c => c.classList.remove("drop-target"));
     if(targetCard && targetCard !== dragState.card && targetCard.parentElement === grid){
       targetCard.classList.add("drop-target");
@@ -838,7 +958,13 @@
   function onPointerUp(e){
     if(!dragState) return;
     if(e.pointerId !== dragState.pointerId) return;
+    cleanupDrag();
+  }
 
+  function cleanupDrag(){
+    if(!dragState) return;
+
+    clearTimeout(dragState.longPressTimer);
     document.removeEventListener("pointermove", onPointerMove);
     document.removeEventListener("pointerup", onPointerUp);
     document.removeEventListener("pointercancel", onPointerUp);
@@ -846,8 +972,8 @@
     const card = dragState.card;
     const targetKey = dragState.targetKey;
     const fromKey = dragState.key;
+    const started = dragState.started;
 
-    // 恢复卡片样式
     card.classList.remove("dragging");
     card.style.position = "";
     card.style.left = "";
@@ -859,7 +985,7 @@
 
     dragState = null;
 
-    if(targetKey && targetKey !== fromKey){
+    if(started && targetKey && targetKey !== fromKey){
       reorderItems(fromKey, targetKey);
     }
   }
@@ -1024,6 +1150,8 @@
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
+      // 异步从云端加载置顶和排序（不阻塞页面渲染）
+      loadCloudPrefsAsync();
     }else{
       renderSkeleton(4);
     }
