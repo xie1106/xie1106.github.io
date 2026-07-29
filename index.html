@@ -115,6 +115,11 @@
     touch-action:pan-y;user-select:none;-webkit-user-select:none;
   }
   .card:active{cursor:grabbing}
+  .card.pressing{
+    transform:scale(.97);
+    box-shadow:var(--shadow);
+    transition:transform .15s;
+  }
   .card.dragging{
     opacity:.85;box-shadow:var(--shadow-lg);z-index:100;
     cursor:grabbing;position:relative;
@@ -878,7 +883,8 @@
     };
 
     if(e.pointerType === "touch"){
-      // 触摸设备：启动长按计时器，期间允许浏览器正常滚动
+      // 触摸设备：添加按压视觉反馈，启动长按计时器
+      card.classList.add("pressing");
       dragState.longPressTimer = setTimeout(()=>{
         if(dragState && dragState.pointerId === e.pointerId && !dragState.started){
           startDrag();
@@ -895,16 +901,32 @@
   function startDrag(){
     if(!dragState) return;
     dragState.started = true;
+    dragState.card.classList.remove("pressing");
     dragState.card.classList.add("dragging");
     grid.classList.add("drag-active");
-    // 进入拖拽模式后捕获指针，阻止页面滚动
-    if(dragState.card.setPointerCapture){
-      try{ dragState.card.setPointerCapture(dragState.pointerId); }catch(err){}
+
+    // 立即设置卡片初始位置，防止跳动
+    const x = dragState.startX - dragState.offsetX;
+    const y = dragState.startY - dragState.offsetY;
+    dragState.card.style.position = "fixed";
+    dragState.card.style.left = x + "px";
+    dragState.card.style.top = y + "px";
+    dragState.card.style.width = dragState.cardWidth + "px";
+    dragState.card.style.pointerEvents = "none";
+
+    // 触摸设备：阻止后续 touchmove 引起的页面滚动
+    if(dragState.pointerType === "touch"){
+      document.addEventListener("touchmove", preventScroll, {passive:false});
     }
+
     // 触觉反馈
     if(dragState.pointerType === "touch" && navigator.vibrate){
       navigator.vibrate(30);
     }
+  }
+
+  function preventScroll(e){
+    e.preventDefault();
   }
 
   function onPointerMove(e){
@@ -968,6 +990,7 @@
     document.removeEventListener("pointermove", onPointerMove);
     document.removeEventListener("pointerup", onPointerUp);
     document.removeEventListener("pointercancel", onPointerUp);
+    document.removeEventListener("touchmove", preventScroll);
 
     const card = dragState.card;
     const targetKey = dragState.targetKey;
@@ -975,6 +998,7 @@
     const started = dragState.started;
 
     card.classList.remove("dragging");
+    card.classList.remove("pressing");
     card.style.position = "";
     card.style.left = "";
     card.style.top = "";
