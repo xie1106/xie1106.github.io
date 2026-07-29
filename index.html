@@ -122,8 +122,13 @@
   }
   .card.dragging{
     opacity:.85;box-shadow:var(--shadow-lg);z-index:100;
-    cursor:grabbing;position:relative;
+    cursor:grabbing;position:fixed;
     transition:none;
+  }
+  .card-placeholder{
+    border:2px dashed var(--border-2);
+    border-radius:var(--radius);
+    background:var(--surface-2);
   }
   .card.drop-target{border-color:var(--accent) !important;box-shadow:0 0 0 2px var(--accent),var(--shadow-md) !important}
   .card.pinned{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber),var(--shadow-md)}
@@ -905,6 +910,13 @@
     dragState.card.classList.add("dragging");
     grid.classList.add("drag-active");
 
+    // 在原位置插入占位符，防止其他卡片塌陷上移
+    const placeholder = document.createElement("div");
+    placeholder.className = "card-placeholder";
+    placeholder.style.height = dragState.cardHeight + "px";
+    dragState.card.parentNode.insertBefore(placeholder, dragState.card);
+    dragState.placeholder = placeholder;
+
     // 立即设置卡片初始位置，防止跳动
     const x = dragState.startX - dragState.offsetX;
     const y = dragState.startY - dragState.offsetY;
@@ -913,6 +925,7 @@
     dragState.card.style.top = y + "px";
     dragState.card.style.width = dragState.cardWidth + "px";
     dragState.card.style.pointerEvents = "none";
+    dragState.moved = false;
 
     // 触摸设备：阻止后续 touchmove 引起的页面滚动
     if(dragState.pointerType === "touch"){
@@ -958,14 +971,16 @@
     // 拖拽模式中：卡片实时跟随
     const x = e.clientX - dragState.offsetX;
     const y = e.clientY - dragState.offsetY;
-    dragState.card.style.position = "fixed";
     dragState.card.style.left = x + "px";
     dragState.card.style.top = y + "px";
-    dragState.card.style.width = dragState.cardWidth + "px";
-    dragState.card.style.pointerEvents = "none";
 
-    // 用 elementFromPoint 找到下方的卡片
+    // 标记已移动，用于区分"真拖拽"和"长按后未移动直接松手"
+    dragState.moved = true;
+
+    // 临时隐藏拖拽卡片本身，让 elementFromPoint 能找到下方的卡片
+    dragState.card.style.visibility = "hidden";
     const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+    dragState.card.style.visibility = "";
     const targetCard = elBelow?.closest(".card");
 
     grid.querySelectorAll(".card.drop-target").forEach(c => c.classList.remove("drop-target"));
@@ -996,6 +1011,7 @@
     const targetKey = dragState.targetKey;
     const fromKey = dragState.key;
     const started = dragState.started;
+    const moved = dragState.moved;
 
     card.classList.remove("dragging");
     card.classList.remove("pressing");
@@ -1004,12 +1020,19 @@
     card.style.top = "";
     card.style.width = "";
     card.style.pointerEvents = "";
+    card.style.visibility = "";
     grid.classList.remove("drag-active");
     grid.querySelectorAll(".card.drop-target").forEach(c => c.classList.remove("drop-target"));
 
+    // 移除占位符
+    if(dragState.placeholder){
+      dragState.placeholder.remove();
+    }
+
     dragState = null;
 
-    if(started && targetKey && targetKey !== fromKey){
+    // 只有真正拖拽到目标位置才重排（长按后未移动不触发）
+    if(started && moved && targetKey && targetKey !== fromKey){
       reorderItems(fromKey, targetKey);
     }
   }
