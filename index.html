@@ -103,7 +103,8 @@
   /* ===== Main ===== */
   .main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-  .grid.drag-active .card{transition:transform .15s}
+  .grid.drag-active .card{transition:none}
+  .grid.drag-active{cursor:grabbing}
 
   .card{
     position:relative;background:var(--surface);border:1px solid var(--border);
@@ -111,10 +112,14 @@
     display:flex;flex-direction:column;gap:10px;
     transition:transform .2s,box-shadow .2s,border-color .2s,opacity .2s;
     overflow:hidden;cursor:grab;
-    touch-action:pan-y;
+    touch-action:none;user-select:none;-webkit-user-select:none;
   }
   .card:active{cursor:grabbing}
-  .card.dragging{opacity:.5;transform:scale(.97);box-shadow:var(--shadow-lg);z-index:10;touch-action:none;cursor:grabbing}
+  .card.dragging{
+    opacity:.85;box-shadow:var(--shadow-lg);z-index:100;
+    cursor:grabbing;position:relative;
+    transition:none;
+  }
   .card.drop-target{border-color:var(--accent) !important;box-shadow:0 0 0 2px var(--accent),var(--shadow-md) !important}
   .card.pinned{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber),var(--shadow-md)}
   .card.pinned::before{
@@ -761,7 +766,6 @@
 
   // ---- 拖拽排序（Pointer Events，兼容桌面和移动端）----
   let dragState = null;
-  const DRAG_THRESHOLD = 8;
 
   function attachDragEvents(){
     grid.querySelectorAll(".card").forEach(card=>{
@@ -773,47 +777,54 @@
     // 忽略按钮、链接上的操作
     if(e.target.closest("button, a, .card-confirm")) return;
     const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+
     dragState = {
       key: card.dataset.key,
       card,
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      started: false,
-      targetKey: null,
-      moveHandler: null,
-      upHandler: null
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      cardWidth: rect.width,
+      cardHeight: rect.height,
+      targetKey: null
     };
-    // 用全局监听确保移出卡片也能响应
-    dragState.moveHandler = ev => onPointerMove(ev);
-    dragState.upHandler = ev => onPointerUp(ev);
-    document.addEventListener("pointermove", dragState.moveHandler);
-    document.addEventListener("pointerup", dragState.upHandler);
-    document.addEventListener("pointercancel", dragState.upHandler);
+
+    // 捕获指针，确保后续事件都发给当前元素
+    if(card.setPointerCapture){
+      try{ card.setPointerCapture(e.pointerId); }catch(err){}
+    }
+
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerUp);
   }
 
   function onPointerMove(e){
     if(!dragState || e.pointerId !== dragState.pointerId) return;
-    const dx = e.clientX - dragState.startX;
-    const dy = e.clientY - dragState.startY;
 
-    // 超过阈值才进入拖拽模式
-    if(!dragState.started){
-      if(Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
-      dragState.started = true;
+    // 立即进入拖拽模式，无阈值
+    if(!dragState.card.classList.contains("dragging")){
       dragState.card.classList.add("dragging");
       grid.classList.add("drag-active");
     }
 
-    // 阻止默认行为（防止手机滚动）
-    e.preventDefault();
+    // 卡片实时跟随手指/鼠标
+    const x = e.clientX - dragState.offsetX;
+    const y = e.clientY - dragState.offsetY;
+    dragState.card.style.position = "fixed";
+    dragState.card.style.left = x + "px";
+    dragState.card.top = y + "px";
+    dragState.card.style.top = y + "px";
+    dragState.card.style.width = dragState.cardWidth + "px";
+    dragState.card.style.pointerEvents = "none";
 
     // 用 elementFromPoint 找到下方的卡片
-    dragState.card.style.pointerEvents = "none";
     const elBelow = document.elementFromPoint(e.clientX, e.clientY);
-    dragState.card.style.pointerEvents = "";
-
     const targetCard = elBelow?.closest(".card");
+
     // 清除之前的高亮
     grid.querySelectorAll(".card.drop-target").forEach(c => c.classList.remove("drop-target"));
     if(targetCard && targetCard !== dragState.card && targetCard.parentElement === grid){
@@ -828,20 +839,29 @@
     if(!dragState) return;
     if(e.pointerId !== dragState.pointerId) return;
 
-    document.removeEventListener("pointermove", dragState.moveHandler);
-    document.removeEventListener("pointerup", dragState.upHandler);
-    document.removeEventListener("pointercancel", dragState.upHandler);
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", onPointerUp);
+    document.removeEventListener("pointercancel", onPointerUp);
 
-    if(dragState.started){
-      dragState.card.classList.remove("dragging");
-      grid.classList.remove("drag-active");
-      grid.querySelectorAll(".card.drop-target").forEach(c => c.classList.remove("drop-target"));
+    const card = dragState.card;
+    const targetKey = dragState.targetKey;
+    const fromKey = dragState.key;
 
-      if(dragState.targetKey && dragState.targetKey !== dragState.key){
-        reorderItems(dragState.key, dragState.targetKey);
-      }
-    }
+    // 恢复卡片样式
+    card.classList.remove("dragging");
+    card.style.position = "";
+    card.style.left = "";
+    card.style.top = "";
+    card.style.width = "";
+    card.style.pointerEvents = "";
+    grid.classList.remove("drag-active");
+    grid.querySelectorAll(".card.drop-target").forEach(c => c.classList.remove("drop-target"));
+
     dragState = null;
+
+    if(targetKey && targetKey !== fromKey){
+      reorderItems(fromKey, targetKey);
+    }
   }
 
   function reorderItems(fromKey, toKey){
