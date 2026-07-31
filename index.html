@@ -449,7 +449,8 @@
   let cloudPrefsLoaded = false;
 
   // 从云端加载置顶、排序和回收站
-  async function loadCloudPrefsAsync(){
+  // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
+  async function loadCloudPrefsAsync(isPostRefresh){
     try{
       const res = await fetchWithTimeout(
         `${PREFS_RAW}?t=${Date.now()}`,
@@ -464,8 +465,9 @@
 
       // 回收站：合并本地和云端（取并集，一旦删除在所有设备都删除）
       if(cloud.hidden && Array.isArray(cloud.hidden)){
+        const beforeSize = hiddenSet.size;
         const merged = new Set([...hiddenSet, ...cloud.hidden]);
-        if(merged.size !== hiddenSet.size){
+        if(merged.size !== beforeSize){
           hiddenSet = merged;
           try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
           updateTrashCount();
@@ -484,8 +486,10 @@
 
       cloudPrefsLoaded = true;
 
-      if(changed){
-        // 重新过滤 allItems（排除新同步的回收站项目）
+      // refresh 后强制重新过滤（allItems 可能重建后包含了已删除的项）
+      // 或者云端数据有变化时重新过滤
+      if(changed || isPostRefresh){
+        // 从 allItems 中移除所有在回收站中的项
         allItems = allItems.filter(it => !hiddenSet.has(itemKey(it)));
         renderChips(allItems);
         applyFilter();
@@ -1238,8 +1242,7 @@
     }
 
     await refresh(true);
-    // 同步完成后再次加载云端偏好（确保获取最新的回收站和置顶）
-    loadCloudPrefsAsync();
+    // refresh 内部已 await loadCloudPrefsAsync，无需再调用
   }
 
   async function refresh(announce){
@@ -1247,6 +1250,9 @@
       const repos = await fetchRepos();
       const pageRepos = filterRepos(repos);
       const items = await buildItems(pageRepos);
+
+      // 先加载云端回收站和置顶数据，确保过滤时使用最新的隐藏列表
+      await loadCloudPrefsAsync();
 
       // 抓取每个网页的标题（回收站里的跳过，不再浪费请求）
       const metas = await Promise.allSettled(
