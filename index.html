@@ -501,13 +501,13 @@
     }catch(e){ /* 静默失败，使用本地数据 */ }
   }
 
-  // 保存置顶、排序和回收站到云端（防抖 2 秒）
-  function saveCloudPrefs(){
+  // 保存置顶、排序和回收站到云端
+  // immediate=true 时立即上传（用于删除/恢复操作），否则防抖 2 秒
+  function saveCloudPrefs(immediate){
     const token = getToken();
     if(!token) return; // 没有 Token 不同步到云端
 
-    clearTimeout(cloudSaveTimer);
-    cloudSaveTimer = setTimeout(async ()=>{
+    const doSave = async ()=>{
       try{
         // 获取当前文件 sha（更新已有文件需要）
         let sha = null;
@@ -538,11 +538,19 @@
           body: JSON.stringify(body)
         }, 15000);
 
-        if(res.ok){
-          toastShow("设置已同步到云端", "ok");
+        if(res.ok && immediate){
+          toastShow("已同步到云端", "ok");
         }
       }catch(e){ /* 静默失败 */ }
-    }, 2000);
+    };
+
+    if(immediate){
+      clearTimeout(cloudSaveTimer);
+      doSave();
+    }else{
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = setTimeout(doSave, 2000);
+    }
   }
   function togglePin(key){
     if(pinnedSet.has(key)){
@@ -614,7 +622,8 @@
   function saveHidden(){
     try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
     updateTrashCount();
-    saveCloudPrefs();
+    // 删除/恢复操作立即同步到云端，不防抖
+    saveCloudPrefs(true);
   }
   function updateTrashCount(){
     const n = hiddenSet.size;
@@ -1115,12 +1124,12 @@
 
   // ---- 回收站 ----
   function renderTrash(){
-    const hidden = loadHidden();
+    const hidden = [...hiddenSet];
     if(!hidden.length){
       trashBody.innerHTML = `<div class="empty">回收站为空</div>`;
       return;
     }
-    const cache = loadCache();
+    const cache = loadAnyCache();
     const cachedItems = cache ? cache.items : [];
     trashBody.innerHTML = hidden.map(key=>{
       const it = cachedItems.find(x => itemKey(x) === key);
@@ -1145,7 +1154,7 @@
         btn.closest(".trash-item").style.opacity = "0";
         setTimeout(()=>{
           renderTrash();
-          const cache = loadCache();
+          const cache = loadAnyCache();
           if(cache){
             const cachedItem = cache.items.find(x => itemKey(x) === key);
             if(cachedItem && !allItems.some(it => itemKey(it) === key)){
