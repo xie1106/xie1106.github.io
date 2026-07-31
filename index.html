@@ -317,7 +317,7 @@
 </main>
 
 <footer class="footer">
-  自动收集 GitHub Pages 网页 · 分页自动过滤 · 已删除的网页可在回收站恢复 · 手机长按卡片可拖拽排序 · 设置 Token 后置顶和排序跨设备同步
+  自动收集 GitHub Pages 网页 · 分页自动过滤 · 回收站/置顶/排序跨设备同步 · 手机长按卡片可拖拽排序 · 设置 Token 后开启云端同步
 </footer>
 
 <div class="modal-mask" id="trashModal">
@@ -343,7 +343,7 @@
     <div class="modal-body" style="padding:20px">
       <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
         未登录状态下 GitHub API 每小时限 60 次请求。填写 Token 后提升至 5000 次/小时，可避免同步失败。<br>
-        设置 Token 后，置顶和拖拽排序将自动同步到云端，实现跨设备共享。<br>
+        设置 Token 后，回收站、置顶和拖拽排序将自动同步到云端，实现手机和电脑跨设备共享。<br>
         <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">点此创建 Token</a>，勾选 <code>public_repo</code> 权限即可。
       </p>
       <input id="tokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;margin-bottom:14px" autocomplete="off">
@@ -444,11 +444,11 @@
     saveCloudPrefs();
   }
 
-  // ---- 云端同步（置顶 & 排序跨设备同步）----
+  // ---- 云端同步（置顶 & 排序 & 回收站 跨设备同步）----
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
 
-  // 从云端加载置顶和排序
+  // 从云端加载置顶、排序和回收站
   async function loadCloudPrefsAsync(){
     try{
       const res = await fetchWithTimeout(
@@ -458,22 +458,46 @@
       );
       if(!res.ok) return;
       const cloud = await res.json();
-      if(!cloud || (!cloud.pinned && !cloud.order)) return;
+      if(!cloud) return;
 
-      // 云端数据存在，使用云端数据覆盖本地
-      pinnedList = cloud.pinned || [];
-      customOrder = cloud.order || [];
-      pinnedSet = new Set(pinnedList);
-      // 同步到本地缓存
-      try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+      let changed = false;
+
+      // 回收站：合并本地和云端（取并集，一旦删除在所有设备都删除）
+      if(cloud.hidden && Array.isArray(cloud.hidden)){
+        const merged = new Set([...hiddenSet, ...cloud.hidden]);
+        if(merged.size !== hiddenSet.size){
+          hiddenSet = merged;
+          try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
+          updateTrashCount();
+          changed = true;
+        }
+      }
+
+      // 置顶和排序：云端覆盖本地（保持一致性）
+      if(cloud.pinned || cloud.order){
+        pinnedList = cloud.pinned || [];
+        customOrder = cloud.order || [];
+        pinnedSet = new Set(pinnedList);
+        try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+        changed = true;
+      }
+
       cloudPrefsLoaded = true;
-      // 重新渲染
-      renderChips(allItems);
-      applyFilter();
+
+      if(changed){
+        // 重新过滤 allItems（排除新同步的回收站项目）
+        allItems = allItems.filter(it => !hiddenSet.has(itemKey(it)));
+        renderChips(allItems);
+        applyFilter();
+        // 如果回收站有合并，把合并结果回写到云端
+        if(cloud.hidden && Array.isArray(cloud.hidden) && hiddenSet.size > cloud.hidden.length){
+          saveCloudPrefs();
+        }
+      }
     }catch(e){ /* 静默失败，使用本地数据 */ }
   }
 
-  // 保存置顶和排序到云端（防抖 2 秒）
+  // 保存置顶、排序和回收站到云端（防抖 2 秒）
   function saveCloudPrefs(){
     const token = getToken();
     if(!token) return; // 没有 Token 不同步到云端
@@ -494,6 +518,7 @@
         const content = btoa(unescape(encodeURIComponent(JSON.stringify({
           pinned: pinnedList,
           order: customOrder,
+          hidden: [...hiddenSet],
           updated: new Date().toISOString()
         }))));
 
@@ -510,7 +535,7 @@
         }, 15000);
 
         if(res.ok){
-          toastShow("置顶和排序已同步到云端", "ok");
+          toastShow("设置已同步到云端", "ok");
         }
       }catch(e){ /* 静默失败 */ }
     }, 2000);
@@ -585,6 +610,7 @@
   function saveHidden(){
     try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
     updateTrashCount();
+    saveCloudPrefs();
   }
   function updateTrashCount(){
     const n = hiddenSet.size;
@@ -1197,7 +1223,7 @@
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
-      // 异步从云端加载置顶和排序（不阻塞页面渲染）
+      // 异步从云端加载回收站、置顶和排序（不阻塞页面渲染）
       loadCloudPrefsAsync();
     }else{
       renderSkeleton(4);
@@ -1212,6 +1238,8 @@
     }
 
     await refresh(true);
+    // 同步完成后再次加载云端偏好（确保获取最新的回收站和置顶）
+    loadCloudPrefsAsync();
   }
 
   async function refresh(announce){
