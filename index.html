@@ -382,6 +382,7 @@
   const PREFS_FILE = "_prefs.json";
   const PREFS_API = `https://api.github.com/repos/${user}/${user}.github.io/contents/${PREFS_FILE}`;
   const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
+  const PREFS_TS_KEY = `reporthub:prefs-ts:${user}`; // 本地偏好设置最后修改时间
 
   const $ = s => document.querySelector(s);
   const grid = $("#grid");
@@ -438,6 +439,14 @@
       else{ const o = JSON.parse(raw); pinnedList = o.pinned || []; customOrder = o.order || []; }
     }catch(e){ pinnedList = []; customOrder = []; }
     pinnedSet = new Set(pinnedList);
+
+    // 如果本地有置顶/排序数据但没有时间戳（首次升级），用当前时间初始化
+    // 防止云端旧数据覆盖本地已有设置
+    try{
+      if(!localStorage.getItem(PREFS_TS_KEY) && (pinnedList.length > 0 || customOrder.length > 0)){
+        localStorage.setItem(PREFS_TS_KEY, new Date().toISOString());
+      }
+    }catch(e){}
   }
   function savePinnedOrder(){
     try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
@@ -452,18 +461,27 @@
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
     try{
-      const res = await fetchWithTimeout(
-        `${PREFS_RAW}?t=${Date.now()}`,
-        {headers: apiHeaders()},
-        8000
-      );
+      // 用 Contents API 读取，避免 raw.githubusercontent.com 的 CDN 缓存
+      const res = await fetchWithTimeout(PREFS_API, {headers: apiHeaders()}, 8000);
       if(!res.ok) return;
-      const cloud = await res.json();
+      const fileData = await res.json();
+      if(!fileData || !fileData.content) return;
+
+      // 解码 base64 内容
+      const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
+      const cloud = JSON.parse(jsonStr);
       if(!cloud) return;
 
       let changed = false;
 
-      // 回收站：合并本地和云端（取并集，一旦删除在所有设备都删除）
+      // 比较时间戳：只有云端数据比本地新，才覆盖置顶和排序
+      const cloudUpdated = cloud.updated || "1970-01-01T00:00:00.000Z";
+      let localUpdated = "1970-01-01T00:00:00.000Z";
+      try{ localUpdated = localStorage.getItem(PREFS_TS_KEY) || localUpdated; }catch(e){}
+
+      const cloudIsNewer = new Date(cloudUpdated).getTime() > new Date(localUpdated).getTime();
+
+      // 回收站：始终合并（取并集，一旦删除在所有设备都删除）
       if(cloud.hidden && Array.isArray(cloud.hidden)){
         const beforeSize = hiddenSet.size;
         const merged = new Set([...hiddenSet, ...cloud.hidden]);
@@ -475,12 +493,15 @@
         }
       }
 
-      // 置顶和排序：云端覆盖本地（保持一致性）
-      if(cloud.pinned || cloud.order){
+      // 置顶和排序：只有云端比本地新才覆盖（防止旧数据覆盖本地新修改）
+      if(cloudIsNewer && (cloud.pinned || cloud.order)){
         pinnedList = cloud.pinned || [];
         customOrder = cloud.order || [];
         pinnedSet = new Set(pinnedList);
-        try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+        try{
+          localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder}));
+          localStorage.setItem(PREFS_TS_KEY, cloudUpdated);
+        }catch(e){}
         changed = true;
       }
 
@@ -504,6 +525,10 @@
   // 保存置顶、排序和回收站到云端
   // immediate=true 时立即上传（用于删除/恢复操作），否则防抖 2 秒
   function saveCloudPrefs(immediate){
+    // 无论是否有 Token，都记录本地修改时间戳（用于防止云端旧数据覆盖本地新修改）
+    const now = new Date().toISOString();
+    try{ localStorage.setItem(PREFS_TS_KEY, now); }catch(e){}
+
     const token = getToken();
     if(!token) return; // 没有 Token 不同步到云端
 
@@ -523,7 +548,7 @@
           pinned: pinnedList,
           order: customOrder,
           hidden: [...hiddenSet],
-          updated: new Date().toISOString()
+          updated: now
         }))));
 
         const body = {
