@@ -439,14 +439,6 @@
       else{ const o = JSON.parse(raw); pinnedList = o.pinned || []; customOrder = o.order || []; }
     }catch(e){ pinnedList = []; customOrder = []; }
     pinnedSet = new Set(pinnedList);
-
-    // 如果本地有置顶/排序数据但没有时间戳（首次升级），用当前时间初始化
-    // 防止云端旧数据覆盖本地已有设置
-    try{
-      if(!localStorage.getItem(PREFS_TS_KEY) && (pinnedList.length > 0 || customOrder.length > 0)){
-        localStorage.setItem(PREFS_TS_KEY, new Date().toISOString());
-      }
-    }catch(e){}
   }
   function savePinnedOrder(){
     try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
@@ -454,6 +446,8 @@
   }
 
   // ---- 云端同步（置顶 & 排序 & 回收站 跨设备同步）----
+  // 策略：置顶和回收站用并集合并（永不丢失），排序用云端覆盖
+  // 同步时只读取不写入，只有用户明确操作时才上传
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
 
@@ -461,8 +455,8 @@
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
     try{
-      // 用 Contents API 读取，避免 raw.githubusercontent.com 的 CDN 缓存
-      const res = await fetchWithTimeout(PREFS_API, {headers: apiHeaders()}, 8000);
+      // 用 Contents API 读取，添加时间戳和 no-store 避免缓存
+      const res = await fetchWithTimeout(`${PREFS_API}?t=${Date.now()}`, {headers: apiHeaders(), cache: 'no-store'}, 8000);
       if(!res.ok) return;
       const fileData = await res.json();
       if(!fileData || !fileData.content) return;
@@ -474,14 +468,7 @@
 
       let changed = false;
 
-      // 比较时间戳：只有云端数据比本地新，才覆盖置顶和排序
-      const cloudUpdated = cloud.updated || "1970-01-01T00:00:00.000Z";
-      let localUpdated = "1970-01-01T00:00:00.000Z";
-      try{ localUpdated = localStorage.getItem(PREFS_TS_KEY) || localUpdated; }catch(e){}
-
-      const cloudIsNewer = new Date(cloudUpdated).getTime() > new Date(localUpdated).getTime();
-
-      // 回收站：始终合并（取并集，一旦删除在所有设备都删除）
+      // 回收站：并集合并（一旦删除在所有设备都删除）
       if(cloud.hidden && Array.isArray(cloud.hidden)){
         const beforeSize = hiddenSet.size;
         const merged = new Set([...hiddenSet, ...cloud.hidden]);
@@ -493,62 +480,91 @@
         }
       }
 
-      // 置顶和排序：只有云端比本地新才覆盖（防止旧数据覆盖本地新修改）
-      if(cloudIsNewer && (cloud.pinned || cloud.order)){
-        pinnedList = cloud.pinned || [];
-        customOrder = cloud.order || [];
-        pinnedSet = new Set(pinnedList);
-        try{
-          localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder}));
-          localStorage.setItem(PREFS_TS_KEY, cloudUpdated);
-        }catch(e){}
-        changed = true;
+      // 置顶：并集合并（任一设备置顶的都保留，防止丢失）
+      if(cloud.pinned && Array.isArray(cloud.pinned) && cloud.pinned.length > 0){
+        const beforeSize = pinnedSet.size;
+        const mergedPinned = [...new Set([...pinnedList, ...cloud.pinned])];
+        if(mergedPinned.length !== beforeSize){
+          pinnedList = mergedPinned;
+          pinnedSet = new Set(pinnedList);
+          try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+          changed = true;
+        }
+      }
+
+      // 排序：只追加云端有但本地没有的 key（不覆盖本地排序）
+      if(cloud.order && Array.isArray(cloud.order)){
+        let orderChanged = false;
+        cloud.order.forEach(k => {
+          if(!customOrder.includes(k)){
+            customOrder.push(k);
+            orderChanged = true;
+          }
+        });
+        if(orderChanged){
+          try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+          changed = true;
+        }
       }
 
       cloudPrefsLoaded = true;
 
-      // refresh 后强制重新过滤（allItems 可能重建后包含了已删除的项）
-      // 或者云端数据有变化时重新过滤
-      if(changed || isPostRefresh){
-        // 从 allItems 中移除所有在回收站中的项
+      // 有变化或 refresh 后强制重新过滤（allItems 不为空时才渲染）
+      if((changed || isPostRefresh) && allItems.length > 0){
         allItems = allItems.filter(it => !hiddenSet.has(itemKey(it)));
         renderChips(allItems);
         applyFilter();
-        // 如果回收站有合并，把合并结果回写到云端
-        if(cloud.hidden && Array.isArray(cloud.hidden) && hiddenSet.size > cloud.hidden.length){
-          saveCloudPrefs();
-        }
       }
     }catch(e){ /* 静默失败，使用本地数据 */ }
   }
 
   // 保存置顶、排序和回收站到云端
   // immediate=true 时立即上传（用于删除/恢复操作），否则防抖 2 秒
+  // 上传前先读取云端数据并合并，确保不丢失其他设备的数据
   function saveCloudPrefs(immediate){
-    // 无论是否有 Token，都记录本地修改时间戳（用于防止云端旧数据覆盖本地新修改）
-    const now = new Date().toISOString();
-    try{ localStorage.setItem(PREFS_TS_KEY, now); }catch(e){}
-
     const token = getToken();
     if(!token) return; // 没有 Token 不同步到云端
 
     const doSave = async ()=>{
       try{
-        // 获取当前文件 sha（更新已有文件需要）
+        // 确保已从云端加载最新数据，避免用不完整的本地数据覆盖云端
+        if(!cloudPrefsLoaded){
+          await loadCloudPrefsAsync();
+        }
+
+        // 先读取云端当前数据，合并后再上传（防止覆盖其他设备的数据）
+        let cloudPinned = [];
+        let cloudHidden = [];
+        let cloudOrder = [];
         let sha = null;
         try{
-          const getRes = await fetchWithTimeout(PREFS_API, {headers: apiHeaders()}, 8000);
+          const getRes = await fetchWithTimeout(`${PREFS_API}?t=${Date.now()}`, {headers: apiHeaders(), cache: 'no-store'}, 8000);
           if(getRes.ok){
             const fileData = await getRes.json();
             sha = fileData.sha;
+            if(fileData.content){
+              const cloudJson = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,"")))));
+              cloudPinned = cloudJson.pinned || [];
+              cloudHidden = cloudJson.hidden || [];
+              cloudOrder = cloudJson.order || [];
+            }
           }
         }catch(e){}
 
+        // 合并：本地 ∪ 云端（并集，永不丢失）
+        const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])];
+        const mergedHidden = [...new Set([...hiddenSet, ...cloudHidden])];
+        // 排序：本地优先，追加云端有但本地没有的 key
+        const mergedOrder = [...customOrder];
+        cloudOrder.forEach(k => {
+          if(!mergedOrder.includes(k)) mergedOrder.push(k);
+        });
+
         const content = btoa(unescape(encodeURIComponent(JSON.stringify({
-          pinned: pinnedList,
-          order: customOrder,
-          hidden: [...hiddenSet],
-          updated: now
+          pinned: mergedPinned,
+          order: mergedOrder,
+          hidden: mergedHidden,
+          updated: new Date().toISOString()
         }))));
 
         const body = {
@@ -1261,8 +1277,6 @@
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
-      // 异步从云端加载回收站、置顶和排序（不阻塞页面渲染）
-      loadCloudPrefsAsync();
     }else{
       renderSkeleton(4);
     }
@@ -1271,12 +1285,14 @@
 
     const cacheFresh = cache && (Date.now() - cache.t < CACHE_TTL);
     if(!force && cacheFresh){
+      // 缓存新鲜且非强制刷新：只异步加载云端偏好（refresh 内部也会调用，避免重复）
+      loadCloudPrefsAsync();
       refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
       return;
     }
 
+    // 强制刷新或缓存过期：refresh 内部会 await loadCloudPrefsAsync(true)
     await refresh(true);
-    // refresh 内部已 await loadCloudPrefsAsync，无需再调用
   }
 
   async function refresh(announce){
@@ -1286,7 +1302,7 @@
       const items = await buildItems(pageRepos);
 
       // 先加载云端回收站和置顶数据，确保过滤时使用最新的隐藏列表
-      await loadCloudPrefsAsync();
+      await loadCloudPrefsAsync(true);
 
       // 抓取每个网页的标题（回收站里的跳过，不再浪费请求）
       const metas = await Promise.allSettled(
