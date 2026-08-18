@@ -546,11 +546,68 @@
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
 
+  // 将云端偏好数据合并到本地状态（置顶、排序、回收站、恢复列表）
+  // 返回是否有变化
+  function applyCloudPrefs(cloud){
+    let changed = false;
+
+    // 恢复列表：并集合并（已恢复的项目不会被重新加入回收站）
+    if(cloud.restored && Array.isArray(cloud.restored)){
+      const beforeSize = restoredSet.size;
+      const mergedRestored = new Set([...restoredSet, ...cloud.restored]);
+      if(mergedRestored.size !== beforeSize){
+        restoredSet = mergedRestored;
+        try{ localStorage.setItem(RESTORED_KEY, JSON.stringify([...restoredSet])); }catch(e){}
+        changed = true;
+      }
+    }
+
+    // 回收站：先移除已恢复的项目，再并集合并云端（排除已恢复的）
+    if(cloud.hidden && Array.isArray(cloud.hidden)){
+      const beforeSize = hiddenSet.size;
+      for(const key of restoredSet){
+        hiddenSet.delete(key);
+      }
+      const cloudFiltered = cloud.hidden.filter(h => !restoredSet.has(h));
+      const merged = new Set([...hiddenSet, ...cloudFiltered]);
+      if(merged.size !== beforeSize || hiddenSet.size !== beforeSize){
+        hiddenSet = merged;
+        try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
+        updateTrashCount();
+        changed = true;
+      }
+    }
+
+    // 置顶：并集合并（任一设备置顶的都保留，防止丢失）
+    if(cloud.pinned && Array.isArray(cloud.pinned) && cloud.pinned.length > 0){
+      const beforeSize = pinnedList.length;
+      const mergedPinned = [...new Set([...pinnedList, ...cloud.pinned])];
+      if(mergedPinned.length !== beforeSize){
+        pinnedList = mergedPinned;
+        pinnedSet = new Set(pinnedList);
+        try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+        changed = true;
+      }
+    }
+
+    // 排序：只追加云端有但本地没有的 key（不覆盖本地排序）
+    if(cloud.order && Array.isArray(cloud.order) && cloud.order.length > 0){
+      const beforeLen = customOrder.length;
+      const mergedOrder = [...new Set([...customOrder, ...cloud.order])];
+      if(mergedOrder.length !== beforeLen){
+        customOrder = mergedOrder;
+        try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
   // 从云端加载置顶、排序和回收站
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
     try{
-      // 用 Contents API 读取，添加时间戳和 no-store 避免 CDN 缓存
       const cacheBust = `?t=${Date.now()}`;
       const res = await fetchWithTimeout(PREFS_API + cacheBust, {
         headers: apiHeaders(),
@@ -560,68 +617,13 @@
       const fileData = await res.json();
       if(!fileData || !fileData.content) return;
 
-      // 解码 base64 内容
       const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
       const cloud = JSON.parse(jsonStr);
       if(!cloud) return;
 
-      let changed = false;
-
-      // 恢复列表：并集合并（已恢复的项目不会被重新加入回收站）
-      if(cloud.restored && Array.isArray(cloud.restored)){
-        const beforeSize = restoredSet.size;
-        const mergedRestored = new Set([...restoredSet, ...cloud.restored]);
-        if(mergedRestored.size !== beforeSize){
-          restoredSet = mergedRestored;
-          try{ localStorage.setItem(RESTORED_KEY, JSON.stringify([...restoredSet])); }catch(e){}
-          changed = true;
-        }
-      }
-
-      // 回收站：先移除已恢复的项目，再并集合并云端（排除已恢复的）
-      if(cloud.hidden && Array.isArray(cloud.hidden)){
-        // 先从本地 hiddenSet 中移除所有已恢复的项目
-        const beforeSize = hiddenSet.size;
-        for(const key of restoredSet){
-          hiddenSet.delete(key);
-        }
-        // 合并云端 hidden，排除已恢复的项目
-        const cloudFiltered = cloud.hidden.filter(h => !restoredSet.has(h));
-        const merged = new Set([...hiddenSet, ...cloudFiltered]);
-        if(merged.size !== beforeSize || hiddenSet.size !== beforeSize){
-          hiddenSet = merged;
-          try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
-          updateTrashCount();
-          changed = true;
-        }
-      }
-
-      // 置顶：并集合并（任一设备置顶的都保留，防止丢失）
-      if(cloud.pinned && Array.isArray(cloud.pinned) && cloud.pinned.length > 0){
-        const beforeSize = pinnedList.length;
-        const mergedPinned = [...new Set([...pinnedList, ...cloud.pinned])];
-        if(mergedPinned.length !== beforeSize){
-          pinnedList = mergedPinned;
-          pinnedSet = new Set(pinnedList);
-          try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
-          changed = true;
-        }
-      }
-
-      // 排序：只追加云端有但本地没有的 key（不覆盖本地排序）
-      if(cloud.order && Array.isArray(cloud.order) && cloud.order.length > 0){
-        const beforeLen = customOrder.length;
-        const mergedOrder = [...new Set([...customOrder, ...cloud.order])];
-        if(mergedOrder.length !== beforeLen){
-          customOrder = mergedOrder;
-          try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
-          changed = true;
-        }
-      }
-
+      const changed = applyCloudPrefs(cloud);
       cloudPrefsLoaded = true;
 
-      // 加载云端密码设置
       if(cloud.pwdHash !== undefined){
         cloudPwdHash = cloud.pwdHash || null;
         checkAuth();
@@ -629,13 +631,9 @@
 
       // refresh 后或云端数据有变化时，强制重新过滤
       if(changed || isPostRefresh){
-        // 从 allItems 中移除所有在回收站中的项
         allItems = allItems.filter(it => !hiddenSet.has(itemKey(it)));
         renderChips(allItems);
         applyFilter();
-        // 注意：不在同步时自动上传！
-        // 避免本地不完整数据覆盖云端（如本地置顶可能不含其他设备的项）
-        // 只有用户明确操作（置顶/删除/恢复/拖拽）时才上传
       }
     }catch(e){ /* 静默失败，使用本地数据 */ }
   }
@@ -1408,12 +1406,15 @@
   async function load(force){
     const cache = loadAnyCache();
     if(cache && cache.items && cache.items.length){
+      // 等待云端偏好加载完成再渲染，确保手机和电脑显示一致
+      if(!cloudPrefsLoaded){
+        renderSkeleton(4);
+        await loadCloudPrefsAsync();
+      }
       allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
-      // 异步从云端加载回收站、置顶和排序（不阻塞页面渲染）
-      loadCloudPrefsAsync();
     }else{
       renderSkeleton(4);
     }
@@ -1576,7 +1577,8 @@
     // 已认证则直接加载
     try{ if(sessionStorage.getItem(AUTH_KEY) === "1"){ $("#initLoader").remove(); load(false); return; } }catch(e){}
 
-    // 先从云端获取密码设置
+    // 从云端获取偏好设置（密码 + 置顶 + 排序 + 回收站）
+    // 一次请求获取全部数据，避免后续重复请求
     try{
       const cacheBust = `?t=${Date.now()}`;
       const res = await fetchWithTimeout(PREFS_API + cacheBust, {headers: apiHeaders(), cache: 'no-store'}, 8000);
@@ -1585,13 +1587,19 @@
         if(fileData && fileData.content){
           const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
           const cloud = JSON.parse(jsonStr);
-          if(cloud && cloud.pwdHash){
-            cloudPwdHash = cloud.pwdHash;
-            // 需要密码，显示认证遮罩
-            $("#initLoader").remove();
-            authMask.classList.add("show");
-            setTimeout(()=> authInput.focus(), 300);
-            return;
+          if(cloud){
+            // 应用全部云端偏好（置顶、排序、回收站、恢复列表）
+            applyCloudPrefs(cloud);
+            cloudPrefsLoaded = true;
+
+            if(cloud.pwdHash){
+              cloudPwdHash = cloud.pwdHash;
+              // 需要密码，显示认证遮罩
+              $("#initLoader").remove();
+              authMask.classList.add("show");
+              setTimeout(()=> authInput.focus(), 300);
+              return;
+            }
           }
         }
       }
