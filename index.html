@@ -1349,7 +1349,7 @@
       let pageRepos;
       // 优先从静态缓存文件读取仓库列表（不消耗API配额）
       try{
-        const cacheRes = await fetchWithTimeout('_repos_cache.json?t='+Date.now(), {cache:'no-store'}, 5000);
+        const cacheRes = await fetchWithTimeout('repos-cache.json?t='+Date.now(), {cache:'no-store'}, 5000);
         if(cacheRes.ok) pageRepos = await cacheRes.json();
       }catch(e){}
       
