@@ -382,6 +382,7 @@
   const PREFS_FILE = "_prefs.json";
   const PREFS_API = `https://api.github.com/repos/${user}/${user}.github.io/contents/${PREFS_FILE}`;
   const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
+  const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
   const PREFS_TS_KEY = `reporthub:prefs-ts:${user}`; // 本地偏好设置最后修改时间
 
   const $ = s => document.querySelector(s);
@@ -455,15 +456,24 @@
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
     try{
-      // 用 Contents API 读取，添加时间戳和 no-store 避免缓存
-      const res = await fetchWithTimeout(`${PREFS_API}?t=${Date.now()}`, {headers: apiHeaders(), cache: 'no-store'}, 8000);
-      if(!res.ok) return;
-      const fileData = await res.json();
-      if(!fileData || !fileData.content) return;
+      let cloud = null;
 
-      // 解码 base64 内容
-      const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
-      const cloud = JSON.parse(jsonStr);
+      // 优先用 raw URL（无需Token、不耗API配额）
+      try{
+        const rawRes = await fetchWithTimeout(`${PREFS_RAW}?t=${Date.now()}`, {cache:'no-store'}, 6000);
+        if(rawRes.ok) cloud = await rawRes.json();
+      }catch(e){}
+
+      // Fallback：用Contents API
+      if(!cloud){
+        const res = await fetchWithTimeout(`${PREFS_API}?t=${Date.now()}`, {headers: apiHeaders(), cache: 'no-store'}, 8000);
+        if(!res.ok) return;
+        const fileData = await res.json();
+        if(!fileData || !fileData.content) return;
+        const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
+        cloud = JSON.parse(jsonStr);
+      }
+
       if(!cloud) return;
 
       let changed = false;
@@ -1271,27 +1281,27 @@
 
   // ---- 主流程 ----
   async function load(force){
+    renderSkeleton(4);
+    refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
+
+    // 先加载云端回收站数据，确保hiddenSet是最新的再渲染
+    await loadCloudPrefsAsync();
+
     const cache = loadAnyCache();
     if(cache && cache.items && cache.items.length){
       allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
-    }else{
-      renderSkeleton(4);
     }
-
-    refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
 
     const cacheFresh = cache && (Date.now() - cache.t < CACHE_TTL);
     if(!force && cacheFresh){
-      // 缓存新鲜且非强制刷新：只异步加载云端偏好（refresh 内部也会调用，避免重复）
-      loadCloudPrefsAsync();
       refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
       return;
     }
 
-    // 强制刷新或缓存过期：refresh 内部会 await loadCloudPrefsAsync(true)
+    // 强制刷新或缓存过期
     await refresh(true);
   }
 
