@@ -1589,8 +1589,8 @@
 
   // ---- 初始化：先检查密码，再加载内容 ----
   async function initPage(){
-    // 已认证则直接加载
-    try{ if(sessionStorage.getItem(AUTH_KEY) === "1"){ $("#initLoader").remove(); load(false); return; } }catch(e){}
+    // 清除上次会话的认证状态，每次打开/刷新都重新验证密码
+    try{ sessionStorage.removeItem(AUTH_KEY); }catch(e){}
 
     // 从云端获取偏好设置（密码 + 置顶 + 排序 + 回收站）
     // 一次请求获取全部数据，避免后续重复请求
