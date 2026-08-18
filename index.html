@@ -371,6 +371,37 @@
 
   const DEFAULT_USER = "xie1106";
   const user = new URLSearchParams(location.search).get("user") || DEFAULT_USER;
+  
+  // 密码保护（SHA-256 hash存储，不明文）
+  const PASSWORD_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // 空字符串hash，首次使用请设置密码
+  const PASSWORD_KEY = `reporthub:pwd-verified:${user}`;
+  
+  function sha256(str){
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+      .then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join(''));
+  }
+  
+  async function checkPassword(){
+    // 如果hash是空字符串的hash，跳过验证
+    if(PASSWORD_HASH === "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") return true;
+    
+    try{
+      const verified = sessionStorage.getItem(PASSWORD_KEY);
+      if(verified === "1") return true;
+    }catch(e){}
+    
+    const pwd = prompt("请输入访问密码:");
+    if(!pwd) return false;
+    
+    const hash = await sha256(pwd);
+    if(hash === PASSWORD_HASH){
+      try{ sessionStorage.setItem(PASSWORD_KEY, "1"); }catch(e){}
+      return true;
+    }
+    
+    alert("密码错误");
+    return false;
+  }
   const API_REPOS = `https://api.github.com/users/${user}/repos?sort=updated&per_page=100`;
   const API_CONTENTS = name => `https://api.github.com/repos/${user}/${name}/contents`;
   const PAGES_BASE = `https://${user}.github.io`;
@@ -1285,7 +1316,11 @@
     refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
 
     // 先加载云端回收站数据，确保hiddenSet是最新的再渲染
-    await loadCloudPrefsAsync();
+    try{
+      await loadCloudPrefsAsync();
+    }catch(e){
+      console.warn("Failed to load cloud prefs:", e);
+    }
 
     const cache = loadAnyCache();
     if(cache && cache.items && cache.items.length){
@@ -1293,6 +1328,10 @@
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
+    }else if(!force){
+      // 无缓存且非强制刷新，显示提示
+      stateBox('<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+        "首次加载中","正在从 GitHub 同步数据…","","");
     }
 
     const cacheFresh = cache && (Date.now() - cache.t < CACHE_TTL);
@@ -1405,7 +1444,12 @@
   });
 
   updateTrashCount();
-  load(false);
+  
+  // 密码验证后再加载
+  checkPassword().then(ok => {
+    if(ok) load(false);
+    else document.body.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#64748b">访问被拒绝</div>';
+  });
 })();
 </script>
 </body>
