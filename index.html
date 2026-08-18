@@ -371,37 +371,6 @@
 
   const DEFAULT_USER = "xie1106";
   const user = new URLSearchParams(location.search).get("user") || DEFAULT_USER;
-  
-  // 密码保护（SHA-256 hash存储，不明文）
-  const PASSWORD_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // 空字符串hash，首次使用请设置密码
-  const PASSWORD_KEY = `reporthub:pwd-verified:${user}`;
-  
-  function sha256(str){
-    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-      .then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join(''));
-  }
-  
-  async function checkPassword(){
-    // 如果hash是空字符串的hash，跳过验证
-    if(PASSWORD_HASH === "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") return true;
-    
-    try{
-      const verified = sessionStorage.getItem(PASSWORD_KEY);
-      if(verified === "1") return true;
-    }catch(e){}
-    
-    const pwd = prompt("请输入访问密码:");
-    if(!pwd) return false;
-    
-    const hash = await sha256(pwd);
-    if(hash === PASSWORD_HASH){
-      try{ sessionStorage.setItem(PASSWORD_KEY, "1"); }catch(e){}
-      return true;
-    }
-    
-    alert("密码错误");
-    return false;
-  }
   const API_REPOS = `https://api.github.com/users/${user}/repos?sort=updated&per_page=100`;
   const API_CONTENTS = name => `https://api.github.com/repos/${user}/${name}/contents`;
   const PAGES_BASE = `https://${user}.github.io`;
@@ -412,7 +381,6 @@
   // 云端同步：置顶 & 排序数据存储在仓库 _prefs.json 中
   const PREFS_FILE = "_prefs.json";
   const PREFS_API = `https://api.github.com/repos/${user}/${user}.github.io/contents/${PREFS_FILE}`;
-  const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
   const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
   const PREFS_TS_KEY = `reporthub:prefs-ts:${user}`; // 本地偏好设置最后修改时间
 
@@ -471,6 +439,14 @@
       else{ const o = JSON.parse(raw); pinnedList = o.pinned || []; customOrder = o.order || []; }
     }catch(e){ pinnedList = []; customOrder = []; }
     pinnedSet = new Set(pinnedList);
+
+    // 如果本地有置顶/排序数据但没有时间戳（首次升级），用当前时间初始化
+    // 防止云端旧数据覆盖本地已有设置
+    try{
+      if(!localStorage.getItem(PREFS_TS_KEY) && (pinnedList.length > 0 || customOrder.length > 0)){
+        localStorage.setItem(PREFS_TS_KEY, new Date().toISOString());
+      }
+    }catch(e){}
   }
   function savePinnedOrder(){
     try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
@@ -478,8 +454,6 @@
   }
 
   // ---- 云端同步（置顶 & 排序 & 回收站 跨设备同步）----
-  // 策略：置顶和回收站用并集合并（永不丢失），排序用云端覆盖
-  // 同步时只读取不写入，只有用户明确操作时才上传
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
 
@@ -487,29 +461,24 @@
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
     try{
-      let cloud = null;
+      // 用 Contents API 读取，添加时间戳和 no-store 避免 CDN 缓存
+      const cacheBust = `?t=${Date.now()}`;
+      const res = await fetchWithTimeout(PREFS_API + cacheBust, {
+        headers: apiHeaders(),
+        cache: 'no-store'
+      }, 8000);
+      if(!res.ok) return;
+      const fileData = await res.json();
+      if(!fileData || !fileData.content) return;
 
-      // 优先用 raw URL（无需Token、不耗API配额）
-      try{
-        const rawRes = await fetchWithTimeout(`${PREFS_RAW}?t=${Date.now()}`, {cache:'no-store'}, 6000);
-        if(rawRes.ok) cloud = await rawRes.json();
-      }catch(e){}
-
-      // Fallback：用Contents API
-      if(!cloud){
-        const res = await fetchWithTimeout(`${PREFS_API}?t=${Date.now()}`, {headers: apiHeaders(), cache: 'no-store'}, 8000);
-        if(!res.ok) return;
-        const fileData = await res.json();
-        if(!fileData || !fileData.content) return;
-        const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
-        cloud = JSON.parse(jsonStr);
-      }
-
+      // 解码 base64 内容
+      const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
+      const cloud = JSON.parse(jsonStr);
       if(!cloud) return;
 
       let changed = false;
 
-      // 回收站：并集合并（一旦删除在所有设备都删除）
+      // 回收站：并集合并（一旦删除在所有设备都删除，永不丢失）
       if(cloud.hidden && Array.isArray(cloud.hidden)){
         const beforeSize = hiddenSet.size;
         const merged = new Set([...hiddenSet, ...cloud.hidden]);
@@ -523,7 +492,7 @@
 
       // 置顶：并集合并（任一设备置顶的都保留，防止丢失）
       if(cloud.pinned && Array.isArray(cloud.pinned) && cloud.pinned.length > 0){
-        const beforeSize = pinnedSet.size;
+        const beforeSize = pinnedList.length;
         const mergedPinned = [...new Set([...pinnedList, ...cloud.pinned])];
         if(mergedPinned.length !== beforeSize){
           pinnedList = mergedPinned;
@@ -534,15 +503,11 @@
       }
 
       // 排序：只追加云端有但本地没有的 key（不覆盖本地排序）
-      if(cloud.order && Array.isArray(cloud.order)){
-        let orderChanged = false;
-        cloud.order.forEach(k => {
-          if(!customOrder.includes(k)){
-            customOrder.push(k);
-            orderChanged = true;
-          }
-        });
-        if(orderChanged){
+      if(cloud.order && Array.isArray(cloud.order) && cloud.order.length > 0){
+        const beforeLen = customOrder.length;
+        const mergedOrder = [...new Set([...customOrder, ...cloud.order])];
+        if(mergedOrder.length !== beforeLen){
+          customOrder = mergedOrder;
           try{ localStorage.setItem(ORDER_KEY, JSON.stringify({pinned:pinnedList, order:customOrder})); }catch(e){}
           changed = true;
         }
@@ -550,11 +515,15 @@
 
       cloudPrefsLoaded = true;
 
-      // 有变化或 refresh 后强制重新过滤（allItems 不为空时才渲染）
-      if((changed || isPostRefresh) && allItems.length > 0){
+      // refresh 后或云端数据有变化时，强制重新过滤
+      if(changed || isPostRefresh){
+        // 从 allItems 中移除所有在回收站中的项
         allItems = allItems.filter(it => !hiddenSet.has(itemKey(it)));
         renderChips(allItems);
         applyFilter();
+        // 注意：不在同步时自动上传！
+        // 避免本地不完整数据覆盖云端（如本地置顶可能不含其他设备的项）
+        // 只有用户明确操作（置顶/删除/恢复/拖拽）时才上传
       }
     }catch(e){ /* 静默失败，使用本地数据 */ }
   }
@@ -563,23 +532,25 @@
   // immediate=true 时立即上传（用于删除/恢复操作），否则防抖 2 秒
   // 上传前先读取云端数据并合并，确保不丢失其他设备的数据
   function saveCloudPrefs(immediate){
+    const now = new Date().toISOString();
+    try{ localStorage.setItem(PREFS_TS_KEY, now); }catch(e){}
+
     const token = getToken();
-    if(!token) return; // 没有 Token 不同步到云端
+    if(!token) return;
 
     const doSave = async ()=>{
       try{
-        // 确保已从云端加载最新数据，避免用不完整的本地数据覆盖云端
-        if(!cloudPrefsLoaded){
-          await loadCloudPrefsAsync();
-        }
-
         // 先读取云端当前数据，合并后再上传（防止覆盖其他设备的数据）
         let cloudPinned = [];
         let cloudHidden = [];
         let cloudOrder = [];
         let sha = null;
         try{
-          const getRes = await fetchWithTimeout(`${PREFS_API}?t=${Date.now()}`, {headers: apiHeaders(), cache: 'no-store'}, 8000);
+          const cacheBust = `?t=${Date.now()}`;
+          const getRes = await fetchWithTimeout(PREFS_API + cacheBust, {
+            headers: apiHeaders(),
+            cache: 'no-store'
+          }, 8000);
           if(getRes.ok){
             const fileData = await getRes.json();
             sha = fileData.sha;
@@ -595,21 +566,18 @@
         // 合并：本地 ∪ 云端（并集，永不丢失）
         const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])];
         const mergedHidden = [...new Set([...hiddenSet, ...cloudHidden])];
-        // 排序：本地优先，追加云端有但本地没有的 key
-        const mergedOrder = [...customOrder];
-        cloudOrder.forEach(k => {
-          if(!mergedOrder.includes(k)) mergedOrder.push(k);
-        });
+        // 排序用本地覆盖（用户最近操作的优先）
+        const mergedOrder = customOrder.length > 0 ? customOrder : cloudOrder;
 
         const content = btoa(unescape(encodeURIComponent(JSON.stringify({
           pinned: mergedPinned,
           order: mergedOrder,
           hidden: mergedHidden,
-          updated: new Date().toISOString()
+          updated: now
         }))));
 
         const body = {
-          message: `chore: sync preferences [${new Date().toISOString()}]`,
+          message: `chore: sync preferences [${now}]`,
           content: content
         };
         if(sha) body.sha = sha;
@@ -1312,27 +1280,19 @@
 
   // ---- 主流程 ----
   async function load(force){
-    renderSkeleton(4);
-    refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
-
-    // 先加载云端回收站数据，确保hiddenSet是最新的再渲染
-    try{
-      await loadCloudPrefsAsync();
-    }catch(e){
-      console.warn("Failed to load cloud prefs:", e);
-    }
-
     const cache = loadAnyCache();
     if(cache && cache.items && cache.items.length){
       allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
       metaMap = cache.meta || {};
       renderChips(allItems);
       applyFilter();
-    }else if(!force){
-      // 无缓存且非强制刷新，显示提示
-      stateBox('<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
-        "首次加载中","正在从 GitHub 同步数据…","","");
+      // 异步从云端加载回收站、置顶和排序（不阻塞页面渲染）
+      loadCloudPrefsAsync();
+    }else{
+      renderSkeleton(4);
     }
+
+    refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
 
     const cacheFresh = cache && (Date.now() - cache.t < CACHE_TTL);
     if(!force && cacheFresh){
@@ -1340,28 +1300,18 @@
       return;
     }
 
-    // 强制刷新或缓存过期
     await refresh(true);
+    // refresh 内部已 await loadCloudPrefsAsync，无需再调用
   }
 
   async function refresh(announce){
     try{
-      let pageRepos;
-      // 优先从静态缓存文件读取仓库列表（不消耗API配额）
-      try{
-        const cacheRes = await fetchWithTimeout('repos-cache.json?t='+Date.now(), {cache:'no-store'}, 5000);
-        if(cacheRes.ok) pageRepos = await cacheRes.json();
-      }catch(e){}
-      
-      // Fallback：调用GitHub API
-      if(!pageRepos || !pageRepos.length){
-        const repos = await fetchRepos();
-        pageRepos = filterRepos(repos);
-      }
-      
+      const repos = await fetchRepos();
+      const pageRepos = filterRepos(repos);
       const items = await buildItems(pageRepos);
 
       // 先加载云端回收站和置顶数据，确保过滤时使用最新的隐藏列表
+      // 传入 true 强制重新过滤（refresh 后 allItems 可能重建包含已删除的项）
       await loadCloudPrefsAsync(true);
 
       // 抓取每个网页的标题（回收站里的跳过，不再浪费请求）
@@ -1455,12 +1405,7 @@
   });
 
   updateTrashCount();
-  
-  // 密码验证后再加载
-  checkPassword().then(ok => {
-    if(ok) load(false);
-    else document.body.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#64748b">访问被拒绝</div>';
-  });
+  load(false);
 })();
 </script>
 </body>
