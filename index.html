@@ -1346,8 +1346,19 @@
 
   async function refresh(announce){
     try{
-      const repos = await fetchRepos();
-      const pageRepos = filterRepos(repos);
+      let pageRepos;
+      // 优先从静态缓存文件读取仓库列表（不消耗API配额）
+      try{
+        const cacheRes = await fetchWithTimeout('_repos_cache.json?t='+Date.now(), {cache:'no-store'}, 5000);
+        if(cacheRes.ok) pageRepos = await cacheRes.json();
+      }catch(e){}
+      
+      // Fallback：调用GitHub API
+      if(!pageRepos || !pageRepos.length){
+        const repos = await fetchRepos();
+        pageRepos = filterRepos(repos);
+      }
+      
       const items = await buildItems(pageRepos);
 
       // 先加载云端回收站和置顶数据，确保过滤时使用最新的隐藏列表
