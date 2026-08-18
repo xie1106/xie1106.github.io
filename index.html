@@ -604,6 +604,16 @@
     return changed;
   }
 
+  // 检查本地是否有云端没有的数据（需要上传同步）
+  function hasLocalExtraData(cloud){
+    const cloudHidden = new Set(cloud.hidden || []);
+    const cloudPinned = new Set(cloud.pinned || []);
+    const cloudRestored = new Set(cloud.restored || []);
+    return [...hiddenSet].some(h => !cloudHidden.has(h)) ||
+           [...pinnedList].some(p => !cloudPinned.has(p)) ||
+           [...restoredSet].some(r => !cloudRestored.has(r));
+  }
+
   // 从云端加载置顶、排序和回收站
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
@@ -623,6 +633,11 @@
 
       const changed = applyCloudPrefs(cloud);
       cloudPrefsLoaded = true;
+
+      // 本地有云端没有的数据时，自动上传同步（安全：saveCloudPrefs 会先合并再上传）
+      if(hasLocalExtraData(cloud)){
+        saveCloudPrefs(false);
+      }
 
       if(cloud.pwdHash !== undefined){
         cloudPwdHash = cloud.pwdHash || null;
@@ -1591,6 +1606,11 @@
             // 应用全部云端偏好（置顶、排序、回收站、恢复列表）
             applyCloudPrefs(cloud);
             cloudPrefsLoaded = true;
+
+            // 本地有云端没有的数据时，自动上传同步
+            if(hasLocalExtraData(cloud)){
+              saveCloudPrefs(false);
+            }
 
             if(cloud.pwdHash){
               cloudPwdHash = cloud.pwdHash;
