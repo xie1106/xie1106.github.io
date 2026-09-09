@@ -138,7 +138,7 @@
   }
   .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:transparent}
   .card.pinned:hover{border-color:var(--amber)}
-  .card:hover .card-del,.card:hover .card-pin{opacity:1;pointer-events:auto}
+  .card:hover .card-del,.card:hover .card-pin,.card:hover .card-edit{opacity:1;pointer-events:auto}
   .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .badge{
     display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
@@ -152,7 +152,7 @@
   .card-actions{
     position:absolute;top:10px;right:10px;display:flex;gap:4px;z-index:3;
   }
-  .card-pin,.card-del{
+  .card-pin,.card-del,.card-edit{
     width:24px;height:24px;border-radius:6px;
     display:flex;align-items:center;justify-content:center;
     background:var(--surface-2);border:1px solid var(--border);color:var(--muted-2);
@@ -160,9 +160,15 @@
   }
   .card-pin:hover{background:var(--amber);border-color:var(--amber);color:#fff}
   .card-pin.pinned{background:var(--amber);border-color:var(--amber);color:#fff;opacity:1}
+  .card-edit:hover{background:var(--accent);border-color:var(--accent);color:#fff}
   .card-del:hover{background:var(--rose);border-color:var(--rose);color:#fff}
   .card-title{font-size:16px;font-weight:700;line-height:1.35;letter-spacing:-.2px;padding-right:56px}
   .card-title a:hover{color:var(--accent)}
+  .card-edit-input{
+    width:100%;font-size:16px;font-weight:700;line-height:1.35;
+    padding:4px 8px;border:2px solid var(--accent);border-radius:8px;
+    background:var(--surface);color:var(--text);outline:none;
+  }
   .card-desc{
     font-size:13px;color:var(--muted);line-height:1.5;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
@@ -446,6 +452,7 @@
   const PREFS_API = `https://api.github.com/repos/${user}/${user}.github.io/contents/${PREFS_FILE}`;
   const PREFS_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/${PREFS_FILE}`;
   const PREFS_TS_KEY = `reporthub:prefs-ts:${user}`; // 本地偏好设置最后修改时间
+  const NAMES_KEY = `reporthub:names:v1:${user}`; // 自定义卡片名称
 
   const $ = s => document.querySelector(s);
   const grid = $("#grid");
@@ -542,6 +549,17 @@
     saveCloudPrefs();
   }
 
+  // 自定义卡片名称
+  let customNames = {};
+  function loadCustomNames(){
+    try{ customNames = JSON.parse(localStorage.getItem(NAMES_KEY) || "{}"); }catch(e){ customNames = {}; }
+  }
+  function saveCustomNames(){
+    try{ localStorage.setItem(NAMES_KEY, JSON.stringify(customNames)); }catch(e){}
+    saveCloudPrefs(true);
+  }
+  loadCustomNames();
+
   // ---- 云端同步（置顶 & 排序 & 回收站 跨设备同步）----
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
@@ -562,15 +580,14 @@
       }
     }
 
-    // 回收站：先移除已恢复的项目，再并集合并云端（排除已恢复的）
+    // 回收站：并集合并云端 hidden（排除已恢复的），但不删除本地 hiddenSet 中的项目
+    // 注意：不使用 restoredSet 去删除本地 hiddenSet，因为用户可能删除→恢复→再删除，
+    // restoredSet 仍有该 key，会导致已删除的项目被错误地从回收站移除
     if(cloud.hidden && Array.isArray(cloud.hidden)){
       const beforeSize = hiddenSet.size;
-      for(const key of restoredSet){
-        hiddenSet.delete(key);
-      }
       const cloudFiltered = cloud.hidden.filter(h => !restoredSet.has(h));
       const merged = new Set([...hiddenSet, ...cloudFiltered]);
-      if(merged.size !== beforeSize || hiddenSet.size !== beforeSize){
+      if(merged.size !== beforeSize){
         hiddenSet = merged;
         try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
         updateTrashCount();
@@ -601,6 +618,21 @@
       }
     }
 
+    // 自定义名称：合并云端（云端覆盖空值，本地有则保留本地）
+    if(cloud.names && typeof cloud.names === "object"){
+      let namesChanged = false;
+      for(const k in cloud.names){
+        if(!customNames[k]){
+          customNames[k] = cloud.names[k];
+          namesChanged = true;
+        }
+      }
+      if(namesChanged){
+        try{ localStorage.setItem(NAMES_KEY, JSON.stringify(customNames)); }catch(e){}
+        changed = true;
+      }
+    }
+
     return changed;
   }
 
@@ -609,9 +641,11 @@
     const cloudHidden = new Set(cloud.hidden || []);
     const cloudPinned = new Set(cloud.pinned || []);
     const cloudRestored = new Set(cloud.restored || []);
+    const cloudNames = cloud.names || {};
     return [...hiddenSet].some(h => !cloudHidden.has(h)) ||
            [...pinnedList].some(p => !cloudPinned.has(p)) ||
-           [...restoredSet].some(r => !cloudRestored.has(r));
+           [...restoredSet].some(r => !cloudRestored.has(r)) ||
+           Object.keys(customNames).some(k => !cloudNames[k]);
   }
 
   // 从云端加载置顶、排序和回收站
@@ -670,6 +704,7 @@
         let cloudHidden = [];
         let cloudRestored = [];
         let cloudOrder = [];
+        let cloudNames = {};
         let sha = null;
         try{
           const cacheBust = `?t=${Date.now()}`;
@@ -686,24 +721,28 @@
               cloudHidden = cloudJson.hidden || [];
               cloudRestored = cloudJson.restored || [];
               cloudOrder = cloudJson.order || [];
+              cloudNames = cloudJson.names || {};
             }
           }
         }catch(e){}
 
-        // 恢复列表：并集合并
-        const mergedRestored = [...new Set([...restoredSet, ...cloudRestored])];
+        // 恢复列表：并集合并，但排除已在回收站中的项（防止删除→恢复→删除循环）
+        const mergedRestored = [...new Set([...restoredSet, ...cloudRestored])].filter(k => !hiddenSet.has(k));
         // 回收站：并集合并，排除已恢复的项目
         const mergedHidden = [...new Set([...hiddenSet, ...cloudHidden.filter(h => !restoredSet.has(h))])];
         // 置顶：并集合并
         const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])];
         // 排序用本地覆盖（用户最近操作的优先）
         const mergedOrder = customOrder.length > 0 ? customOrder : cloudOrder;
+        // 自定义名称：本地覆盖云端（本地优先，但保留云端有本地没有的）
+        const mergedNames = Object.assign({}, cloudNames, customNames);
 
         const content = btoa(unescape(encodeURIComponent(JSON.stringify({
           pinned: mergedPinned,
           order: mergedOrder,
           hidden: mergedHidden,
           restored: mergedRestored,
+          names: mergedNames,
           pwdHash: cloudPwdHash || "",
           updated: now
         }))));
@@ -723,7 +762,12 @@
         if(res.ok && immediate){
           toastShow("已同步到云端", "ok");
         }
-      }catch(e){ /* 静默失败 */ }
+        if(!res.ok && res.status === 401 && immediate){
+          toastShow("Token 已过期，请在设置中更新", "err");
+        }
+      }catch(e){
+        if(immediate) toastShow("同步失败，请检查网络或 Token", "err");
+      }
     };
 
     if(immediate){
@@ -978,15 +1022,20 @@
     grid.innerHTML = items.map((it,i)=>{
       const meta = metaMap[it.url] || {};
       const cat = categorize(it, meta);
-      const shortTitle = meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
-      const delay = Math.min(i*50, 400);
       const key = itemKey(it);
+      const defaultTitle = meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
+      const customName = customNames[key];
+      const shortTitle = customName || defaultTitle;
+      const delay = Math.min(i*50, 400);
       const isPinned = pinnedSet.has(key);
       const isIndex = it.fileName === "index.html" || it.fileName === "index.htm";
       return `<article class="card ${isPinned?'pinned':''} card-enter" style="animation-delay:${delay}ms" data-key="${escapeHtml(key)}">
         <div class="card-actions">
           <button class="card-pin ${isPinned?'pinned':''}" data-pin="${escapeHtml(key)}" title="${isPinned?'取消置顶':'置顶'}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="${isPinned?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2 7h7l-5.5 4 2 7-5.5-4-5.5 4 2-7L3 9h7z"/></svg>
+          </button>
+          <button class="card-edit" data-edit="${escapeHtml(key)}" data-default="${escapeHtml(defaultTitle)}" title="重命名">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button class="card-del" data-del="${escapeHtml(key)}" title="删除">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
@@ -1033,6 +1082,40 @@
       btn.addEventListener("click", e=>{
         e.stopPropagation();
         showDeleteConfirm(btn.dataset.del, btn.closest(".card"));
+      });
+    });
+
+    grid.querySelectorAll("[data-edit]").forEach(btn=>{
+      btn.addEventListener("click", e=>{
+        e.stopPropagation();
+        const key = btn.dataset.edit;
+        const defaultTitle = btn.dataset.default;
+        const card = btn.closest(".card");
+        const titleEl = card.querySelector(".card-title");
+        const currentName = customNames[key] || "";
+        const inputHtml = `<input type="text" class="card-edit-input" value="${escapeHtml(currentName || defaultTitle)}" placeholder="${escapeHtml(defaultTitle)}" maxlength="60" />`;
+        titleEl.innerHTML = inputHtml;
+        const input = titleEl.querySelector("input");
+        input.focus();
+        input.select();
+        let saved = false;
+        const save = ()=>{
+          if(saved) return;
+          saved = true;
+          const val = input.value.trim();
+          if(val && val !== defaultTitle){
+            customNames[key] = val;
+          }else{
+            delete customNames[key];
+          }
+          saveCustomNames();
+          applyFilter();
+        };
+        input.addEventListener("blur", save);
+        input.addEventListener("keydown", ev=>{
+          if(ev.key === "Enter"){ ev.preventDefault(); input.blur(); }
+          if(ev.key === "Escape"){ saved = true; applyFilter(); }
+        });
       });
     });
 
