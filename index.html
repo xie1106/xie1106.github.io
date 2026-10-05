@@ -1101,12 +1101,27 @@
   async function fetchRepoHtmlFiles(repoName){
     try{
       const res = await fetchWithTimeout(API_CONTENTS(repoName), {headers:apiHeaders()}, 10000);
-      if(!res.ok) return ["index.html"];
-      const files = await res.json();
-      if(!Array.isArray(files)) return ["index.html"];
-      const htmls = files.filter(f => f.type === "file" && /\.html?$/i.test(f.name)).map(f => f.name);
-      return htmls.length ? htmls : ["index.html"];
-    }catch(e){ return ["index.html"]; }
+      if(res.ok){
+        const files = await res.json();
+        if(Array.isArray(files)){
+          const htmls = files.filter(f => f.type === "file" && /\.html?$/i.test(f.name)).map(f => f.name);
+          if(htmls.length) return htmls;
+        }
+      }
+    }catch(e){}
+    // API 失败/限流时兜底：探测 Pages 站点（不走 API 限额）
+    // 注意排除 GitHub Pages 为无 index 目录自动生成的 Jekyll 默认页（标题=仓库名）
+    try{
+      const probe = await fetchWithTimeout(`${PAGES_BASE}/${repoName}/`, {}, 6000);
+      if(probe.ok){
+        const txt = await probe.text();
+        const tm = txt.match(/<title>([^<]*)<\/title>/i);
+        const title = tm ? tm[1].trim().toLowerCase() : "";
+        const isAutoPage = /name="generator"\s+content="jekyll/i.test(txt) && title === repoName.toLowerCase();
+        if(!isAutoPage) return ["index.html"];
+      }
+    }catch(e){}
+    return [];
   }
 
   // 过滤分页：同一仓库下，非首页文件如果标题与首页相同，视为分页，不收录
