@@ -1,7 +1,7 @@
 {
   "updated": "2026-10-05T12:12:25Z",
   "user": "xie1106",
-  "count": 17,
+  "count": 16,
   "items": [
     {
       "repo": {
@@ -104,21 +104,6 @@
       "fileName": "index.html",
       "url": "https://xie1106.github.io/warehouse-schedule/",
       "title": "排班系统",
-      "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
-      "createdAt": "2026-06-09T09:58:17Z"
-    },
-    {
-      "repo": {
-        "name": "warehouse-schedule",
-        "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
-        "created_at": "2026-06-09T09:58:17Z",
-        "html_url": "https://github.com/xie1106/warehouse-schedule"
-      },
-      "fileName": "叫车工作台.html",
-      "url": "https://xie1106.github.io/warehouse-schedule/%E5%8F%AB%E8%BD%A6%E5%B7%A5%E4%BD%9C%E5%8F%B0.html",
-      "title": "叫车工作台",
       "desc": "warehouse-schedule",
       "updatedAt": "2026-10-05T12:05:01Z",
       "createdAt": "2026-06-09T09:58:17Z"
