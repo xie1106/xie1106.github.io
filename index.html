@@ -598,6 +598,7 @@
 
   // ---- 云端同步（卡片选择、自定义网站、置顶 & 排序 跨设备同步）----
   let cloudSaveTimer = null;
+  let cloudSaveChain = Promise.resolve(); // 云端保存串行链，防止并发写冲突
   let cloudPrefsLoaded = false;
 
   // 将云端偏好数据合并到本地状态（卡片选择、自定义网站、置顶、排序）
@@ -749,80 +750,94 @@
     if(!token) return;
 
     const doSave = async ()=>{
-      try{
-        // 先读取云端当前数据，合并后再上传（防止覆盖其他设备的数据）
-        let cloudPinned = [];
-        let cloudOrder = [];
-        let cloudNames = {};
-        let sha = null;
+      // 最多重试 3 次：409 冲突（其他设备/标签页刚写入）时重新读取再上传
+      for(let attempt = 0; attempt < 3; attempt++){
         try{
-          const cacheBust = `?t=${Date.now()}`;
-          const getRes = await fetchWithTimeout(PREFS_API + cacheBust, {
-            headers: apiHeaders(),
-            cache: 'no-store'
-          }, 8000);
-          if(getRes.ok){
-            const fileData = await getRes.json();
-            sha = fileData.sha;
-            if(fileData.content){
-              const cloudJson = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,"")))));
-              cloudPinned = cloudJson.pinned || [];
-              cloudOrder = cloudJson.order || [];
-              cloudNames = cloudJson.names || {};
+          // 先读取云端当前数据，合并后再上传（防止覆盖其他设备的数据）
+          let cloudPinned = [];
+          let cloudOrder = [];
+          let cloudNames = {};
+          let sha = null;
+          try{
+            const cacheBust = `?t=${Date.now()}`;
+            const getRes = await fetchWithTimeout(PREFS_API + cacheBust, {
+              headers: apiHeaders(),
+              cache: 'no-store'
+            }, 8000);
+            if(getRes.ok){
+              const fileData = await getRes.json();
+              sha = fileData.sha;
+              if(fileData.content){
+                const cloudJson = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,"")))));
+                cloudPinned = cloudJson.pinned || [];
+                cloudOrder = cloudJson.order || [];
+                cloudNames = cloudJson.names || {};
+              }
             }
+          }catch(e){}
+
+          // 卡片选择：本地覆盖云端（用户最近操作的优先）
+          const mergedSelected = [...selectedSet];
+          // 自定义网站：本地覆盖云端（最后写入者优先，删除也能同步）
+          const mergedSites = [...customSites];
+          // 置顶：并集合并（仅保留仍被选择的卡片）
+          const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])].filter(k => mergedSelected.includes(k));
+          // 排序用本地覆盖（用户最近操作的优先）
+          const mergedOrder = customOrder.length > 0 ? customOrder : cloudOrder;
+          // 自定义名称：本地覆盖云端（本地优先，但保留云端有本地没有的）
+          const mergedNames = Object.assign({}, cloudNames, customNames);
+
+          const content = btoa(unescape(encodeURIComponent(JSON.stringify({
+            selected: mergedSelected,
+            sites: mergedSites,
+            pinned: mergedPinned,
+            order: mergedOrder,
+            names: mergedNames,
+            pwdHash: cloudPwdHash || "",
+            updated: now
+          }))));
+
+          const body = {
+            message: `chore: sync preferences [${now}]`,
+            content: content
+          };
+          if(sha) body.sha = sha;
+
+          const res = await fetchWithTimeout(PREFS_API, {
+            method: "PUT",
+            headers: Object.assign({}, apiHeaders(), {"Content-Type": "application/json"}),
+            body: JSON.stringify(body)
+          }, 15000);
+
+          if(res.ok){
+            if(immediate) toastShow("已同步到云端", "ok");
+            return;
           }
-        }catch(e){}
-
-        // 卡片选择：本地覆盖云端（用户最近操作的优先）
-        const mergedSelected = [...selectedSet];
-        // 自定义网站：本地覆盖云端（最后写入者优先，删除也能同步）
-        const mergedSites = [...customSites];
-        // 置顶：并集合并（仅保留仍被选择的卡片）
-        const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])].filter(k => mergedSelected.includes(k));
-        // 排序用本地覆盖（用户最近操作的优先）
-        const mergedOrder = customOrder.length > 0 ? customOrder : cloudOrder;
-        // 自定义名称：本地覆盖云端（本地优先，但保留云端有本地没有的）
-        const mergedNames = Object.assign({}, cloudNames, customNames);
-
-        const content = btoa(unescape(encodeURIComponent(JSON.stringify({
-          selected: mergedSelected,
-          sites: mergedSites,
-          pinned: mergedPinned,
-          order: mergedOrder,
-          names: mergedNames,
-          pwdHash: cloudPwdHash || "",
-          updated: now
-        }))));
-
-        const body = {
-          message: `chore: sync preferences [${now}]`,
-          content: content
-        };
-        if(sha) body.sha = sha;
-
-        const res = await fetchWithTimeout(PREFS_API, {
-          method: "PUT",
-          headers: Object.assign({}, apiHeaders(), {"Content-Type": "application/json"}),
-          body: JSON.stringify(body)
-        }, 15000);
-
-        if(res.ok && immediate){
-          toastShow("已同步到云端", "ok");
+          if(res.status === 409 && attempt < 2){
+            continue; // SHA 冲突：云端已被更新，重新读取后再试
+          }
+          if(res.status === 401 && immediate){
+            toastShow("Token 已过期，请在设置中更新", "err");
+          }
+          return;
+        }catch(e){
+          if(attempt >= 2){
+            if(immediate) toastShow("同步失败，请检查网络或 Token", "err");
+            return;
+          }
         }
-        if(!res.ok && res.status === 401 && immediate){
-          toastShow("Token 已过期，请在设置中更新", "err");
-        }
-      }catch(e){
-        if(immediate) toastShow("同步失败，请检查网络或 Token", "err");
       }
     };
 
+    // 串行执行云端保存，防止连续操作时并发 GET-PUT 导致 409 冲突丢数据
+    const runTask = ()=>{ cloudSaveChain = cloudSaveChain.then(doSave, doSave).catch(()=>{}); };
+
     if(immediate){
       clearTimeout(cloudSaveTimer);
-      doSave();
+      runTask();
     }else{
       clearTimeout(cloudSaveTimer);
-      cloudSaveTimer = setTimeout(doSave, 2000);
+      cloudSaveTimer = setTimeout(runTask, 2000);
     }
   }
   function togglePin(key){
