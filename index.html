@@ -475,7 +475,7 @@
   const CATALOG_CACHE_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/catalog-cache.json`;
   const API_CONTENTS = name => `https://api.github.com/repos/${user}/${name}/contents`;
   const PAGES_BASE = `https://${user}.github.io`;
-  const CACHE_KEY = `reporthub:v5:${user}`;
+  const CACHE_KEY = `reporthub:v6:${user}`;
   const SELECTED_KEY = `reporthub:selected:v1:${user}`; // 已选择的卡片（白名单）
   const SITES_KEY = `reporthub:sites:v1:${user}`;        // 自定义网站列表
   const ORDER_KEY = `reporthub:order:v4:${user}`;
@@ -702,16 +702,29 @@
     }catch(e){ return false; }
   }
 
-  // 读取云端偏好：优先 raw.githubusercontent.com（不受 API 限流、无需 Token），
+  // 读取站点自带 JSON：同源路径优先（国内访问 raw.githubusercontent.com 不稳定），
+  // 失败时回退 raw。返回解析后的 JSON 或 null
+  async function fetchJsonSmart(localName, rawUrl){
+    const urls = [];
+    if(user === DEFAULT_USER) urls.push(localName + "?t=" + Date.now());
+    urls.push(rawUrl + "?t=" + Date.now());
+    for(const u of urls){
+      try{
+        const res = await fetchWithTimeout(u, {cache:'no-store'}, 8000);
+        if(res.ok){
+          const txt = await res.text();
+          if(txt && txt.trim().startsWith("{")) return JSON.parse(txt);
+        }
+      }catch(e){}
+    }
+    return null;
+  }
+
+  // 读取云端偏好：优先同源/raw（不受 API 限流、无需 Token），
   // 失败时回退 Contents API。返回解析后的 JSON 或 null
   async function fetchCloudPrefs(){
-    try{
-      const res = await fetchWithTimeout(PREFS_RAW + "?t=" + Date.now(), {cache:'no-store'}, 8000);
-      if(res.ok){
-        const txt = await res.text();
-        if(txt && txt.trim().startsWith("{")) return JSON.parse(txt);
-      }
-    }catch(e){}
+    const cloud = await fetchJsonSmart(PREFS_FILE, PREFS_RAW);
+    if(cloud) return cloud;
     try{
       const res = await fetchWithTimeout(PREFS_API + "?t=" + Date.now(), {
         headers: apiHeaders(),
@@ -1087,13 +1100,8 @@
   }
 
   async function fetchReposCache(){
-    try{
-      const res = await fetchWithTimeout(REPOS_CACHE_RAW + "?t=" + Date.now(), {cache:'no-store'}, 8000);
-      if(res.ok){
-        const arr = await res.json();
-        if(Array.isArray(arr) && arr.length) return arr;
-      }
-    }catch(e){}
+    const arr = await fetchJsonSmart("repos-cache.json", REPOS_CACHE_RAW);
+    if(Array.isArray(arr) && arr.length) return arr;
     return null;
   }
 
@@ -1149,10 +1157,8 @@
   let catalogSnapshot = null;
   async function fetchCatalogSnapshot(){
     if(catalogSnapshot) return catalogSnapshot;
-    const res = await fetchWithTimeout(CATALOG_CACHE_RAW + `?t=${Date.now()}`, {cache:'no-store'}, 8000);
-    if(!res.ok) throw new Error("snapshot " + res.status);
-    const data = await res.json();
-    if(!data || !Array.isArray(data.items)) throw new Error("snapshot format");
+    const data = await fetchJsonSmart("catalog-cache.json", CATALOG_CACHE_RAW);
+    if(!data || !Array.isArray(data.items)) throw new Error("snapshot unavailable");
     catalogSnapshot = data;
     return data;
   }
