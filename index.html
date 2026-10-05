@@ -258,6 +258,7 @@
   .modal-body{padding:14px 22px;overflow-y:auto;flex:1}
   .modal-body .empty{text-align:center;color:var(--muted-2);padding:36px 0;font-size:13px}
   .lib-tools{display:flex;gap:8px;padding:14px 22px 0;flex-wrap:wrap;align-items:center}
+  .lib-hint{margin:10px 0 2px;padding:10px 12px;background:var(--accent-soft);border:1px solid #c7d2fe;border-radius:10px;font-size:12px;color:#4338ca;line-height:1.6}
   .lib-add{display:flex;gap:8px;padding:12px 22px 0;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);margin-top:12px;padding-bottom:14px}
   .lib-add input{
     border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;
@@ -470,6 +471,7 @@
   const DEFAULT_USER = "xie1106";
   const user = new URLSearchParams(location.search).get("user") || DEFAULT_USER;
   const API_REPOS = `https://api.github.com/users/${user}/repos?sort=updated&per_page=100`;
+  const REPOS_CACHE_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/repos-cache.json`;
   const API_CONTENTS = name => `https://api.github.com/repos/${user}/${name}/contents`;
   const PAGES_BASE = `https://${user}.github.io`;
   const CACHE_KEY = `reporthub:v4:${user}`;
@@ -699,21 +701,36 @@
     }catch(e){ return false; }
   }
 
+  // 读取云端偏好：优先 raw.githubusercontent.com（不受 API 限流、无需 Token），
+  // 失败时回退 Contents API。返回解析后的 JSON 或 null
+  async function fetchCloudPrefs(){
+    try{
+      const res = await fetchWithTimeout(PREFS_RAW + "?t=" + Date.now(), {cache:'no-store'}, 8000);
+      if(res.ok){
+        const txt = await res.text();
+        if(txt && txt.trim().startsWith("{")) return JSON.parse(txt);
+      }
+    }catch(e){}
+    try{
+      const res = await fetchWithTimeout(PREFS_API + "?t=" + Date.now(), {
+        headers: apiHeaders(),
+        cache: 'no-store'
+      }, 8000);
+      if(res.ok){
+        const fileData = await res.json();
+        if(fileData && fileData.content){
+          return JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,"")))));
+        }
+      }
+    }catch(e){}
+    return null;
+  }
+
   // 从云端加载置顶、排序和回收站
   // isPostRefresh: 表示在 refresh 之后调用，需要强制重新过滤 allItems
   async function loadCloudPrefsAsync(isPostRefresh){
     try{
-      const cacheBust = `?t=${Date.now()}`;
-      const res = await fetchWithTimeout(PREFS_API + cacheBust, {
-        headers: apiHeaders(),
-        cache: 'no-store'
-      }, 8000);
-      if(!res.ok) return;
-      const fileData = await res.json();
-      if(!fileData || !fileData.content) return;
-
-      const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
-      const cloud = JSON.parse(jsonStr);
+      const cloud = await fetchCloudPrefs();
       if(!cloud) return;
 
       const changed = applyCloudPrefs(cloud);
@@ -1044,15 +1061,39 @@
   }
 
   // ---- 数据获取 ----
+  let usedReposCache = false; // 本次同步是否使用了仓库缓存兜底
+
   async function fetchRepos(){
-    const res = await fetchWithTimeout(API_REPOS, {headers:apiHeaders()}, 12000);
-    if(res.status === 403){
-      const remain = res.headers.get("X-RateLimit-Remaining");
-      if(remain === "0") throw new Error("RATE_LIMIT");
-      throw new Error("HTTP 403");
+    try{
+      const res = await fetchWithTimeout(API_REPOS, {headers:apiHeaders()}, 12000);
+      if(res.status === 403){
+        const remain = res.headers.get("X-RateLimit-Remaining");
+        if(remain === "0") throw new Error("RATE_LIMIT");
+        throw new Error("HTTP 403");
+      }
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      usedReposCache = false;
+      return res.json();
+    }catch(e){
+      // API 限流/失败时兜底：读取仓库内的 repos-cache.json（raw 读取，无限流、无需 Token）
+      const fb = await fetchReposCache();
+      if(fb){
+        usedReposCache = true;
+        return fb;
+      }
+      throw e;
     }
-    if(!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
+  }
+
+  async function fetchReposCache(){
+    try{
+      const res = await fetchWithTimeout(REPOS_CACHE_RAW + "?t=" + Date.now(), {cache:'no-store'}, 8000);
+      if(res.ok){
+        const arr = await res.json();
+        if(Array.isArray(arr) && arr.length) return arr;
+      }
+    }catch(e){}
+    return null;
   }
 
   // 扫描仓库根目录的所有 HTML 文件
@@ -1108,9 +1149,13 @@
     return items;
   }
 
-  // 筛选 has_pages 且非模板的仓库
+  // 筛选 has_pages 且非模板的仓库，并补全缓存条目可能缺失的 html_url
   function filterRepos(repos){
-    return repos.filter(r => r.has_pages && !r.is_template && !r.fork && !r.archived);
+    return repos.filter(r => r.has_pages && !r.is_template && !r.fork && !r.archived)
+      .map(r => {
+        if(!r.html_url) r.html_url = `https://github.com/${user}/${r.name}`;
+        return r;
+      });
   }
 
   // ---- 渲染：分类标签（只统计已选择的卡片）----
@@ -1580,6 +1625,9 @@
       (groups[gn] = groups[gn] || []).push(it);
     });
     let h = "";
+    if(!getToken()){
+      h += `<div class="lib-hint"><b>未配置 GitHub Token</b>：当前选择只保存在本设备，其他设备看不到。点右上角 ⚙ 配置 Token 后，选择将自动同步到云端，手机/其他电脑打开即显示。</div>`;
+    }
     // 自定义网站分组置顶展示
     if(groups["__sites__"]){
       h += `<div class="lib-group">
@@ -1749,6 +1797,7 @@
   async function refresh(announce){
     try{
       const repos = await fetchRepos();
+      if(usedReposCache && announce) toastShow("API 限流，仓库列表来自缓存快照", "err");
       const pageRepos = filterRepos(repos);
       const items = await buildItems(pageRepos);
 
@@ -1919,35 +1968,27 @@
     // 清除上次会话的认证状态，每次打开/刷新都重新验证密码
     try{ sessionStorage.removeItem(AUTH_KEY); }catch(e){}
 
-    // 从云端获取偏好设置（密码 + 置顶 + 排序 + 回收站）
-    // 一次请求获取全部数据，避免后续重复请求
+    // 从云端获取偏好设置（密码 + 卡片选择 + 置顶 + 排序）
+    // raw 优先（无限流、无需 Token），API 兜底
     try{
-      const cacheBust = `?t=${Date.now()}`;
-      const res = await fetchWithTimeout(PREFS_API + cacheBust, {headers: apiHeaders(), cache: 'no-store'}, 8000);
-      if(res.ok){
-        const fileData = await res.json();
-        if(fileData && fileData.content){
-          const jsonStr = decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,""))));
-          const cloud = JSON.parse(jsonStr);
-          if(cloud){
-            // 应用全部云端偏好（置顶、排序、回收站、恢复列表）
-            applyCloudPrefs(cloud);
-            cloudPrefsLoaded = true;
+      const cloud = await fetchCloudPrefs();
+      if(cloud){
+        // 应用全部云端偏好（卡片选择、自定义网站、置顶、排序）
+        applyCloudPrefs(cloud);
+        cloudPrefsLoaded = true;
 
-            // 本地有云端没有的数据时，自动上传同步
-            if(hasLocalExtraData(cloud)){
-              saveCloudPrefs(false);
-            }
+        // 本地有云端没有的数据时，自动上传同步
+        if(hasLocalExtraData(cloud)){
+          saveCloudPrefs(false);
+        }
 
-            if(cloud.pwdHash){
-              cloudPwdHash = cloud.pwdHash;
-              // 需要密码，显示认证遮罩
-              $("#initLoader").remove();
-              authMask.classList.add("show");
-              setTimeout(()=> authInput.focus(), 300);
-              return;
-            }
-          }
+        if(cloud.pwdHash){
+          cloudPwdHash = cloud.pwdHash;
+          // 需要密码，显示认证遮罩
+          $("#initLoader").remove();
+          authMask.classList.add("show");
+          setTimeout(()=> authInput.focus(), 300);
+          return;
         }
       }
     }catch(e){}
