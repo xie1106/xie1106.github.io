@@ -256,13 +256,18 @@
   .modal-close:hover{background:var(--surface-2);color:var(--text)}
   .modal-body{padding:14px 22px;overflow-y:auto;flex:1}
   .modal-body .empty{text-align:center;color:var(--muted-2);padding:36px 0;font-size:13px}
-  .trash-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-  .trash-item:last-child{border-bottom:none}
-  .trash-item .info{flex:1;min-width:0}
-  .trash-item .name{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .trash-item .repo{font-size:11px;color:var(--muted-2);font-family:'SFMono-Regular',Consolas,monospace}
-  .btn-restore{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;transition:all .18s;flex:none}
-  .btn-restore:hover{background:var(--green);color:#fff}
+  .lib-tools{display:flex;gap:8px;padding:14px 22px 0;flex-wrap:wrap;align-items:center}
+  .lib-group{font-size:11px;font-weight:700;color:var(--muted-2);letter-spacing:.5px;padding:14px 0 6px;font-family:'SFMono-Regular',Consolas,monospace;display:flex;align-items:center;gap:6px}
+  .lib-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .lib-item:last-child{border-bottom:none}
+  .lib-item .info{flex:1;min-width:0}
+  .lib-item .name{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lib-item.on .name{color:var(--accent-dark)}
+  .lib-item .repo{font-size:11px;color:var(--muted-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn-toggle{flex:none;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;transition:all .18s}
+  .btn-toggle:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-toggle.on:hover{background:var(--rose);border-color:var(--rose)}
 
   .footer{max-width:1180px;margin:0 auto;padding:20px 24px;text-align:center;color:var(--muted-2);font-size:12px}
   .footer a{color:var(--accent);font-weight:600}
@@ -310,7 +315,7 @@
   <div class="header-inner">
     <div>
       <h1>网页集合</h1>
-      <div class="sub">自动同步 <code id="userTag">xie1106</code> 的 GitHub Pages 网页 · 支持分类筛选与手动管理</div>
+      <div class="sub">同步 <code id="userTag">xie1106</code> 的 Git 仓库内容 · 自主选择要展示的卡片</div>
     </div>
   </div>
 </header>
@@ -331,10 +336,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
         同步
       </button>
-      <button class="btn btn-trash" id="trashBtn" title="回收站">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-        回收站
-        <span class="badge-count" id="trashCount" style="display:none">0</span>
+      <button class="btn btn-trash" id="addBtn" title="从 Git 仓库内容中选择要展示的卡片">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        添加卡片
+        <span class="badge-count" id="addCount" style="display:none">0</span>
       </button>
       <button class="btn" id="tokenBtn" title="GitHub Token 设置">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -350,18 +355,26 @@
 </main>
 
 <footer class="footer">
-  自动收集 GitHub Pages 网页 · 分页自动过滤 · 回收站/置顶/排序跨设备同步 · 手机长按卡片可拖拽排序 · 设置 Token 后开启云端同步
+  同步 Git 仓库内容 · 自主选择展示卡片 · 卡片选择/置顶/排序跨设备同步 · 手机长按卡片可拖拽排序 · 设置 Token 后开启云端同步
 </footer>
 
-<div class="modal-mask" id="trashModal">
-  <div class="modal">
+<div class="modal-mask" id="libModal">
+  <div class="modal" style="max-width:560px">
     <div class="modal-head">
-      <h3>回收站</h3>
-      <button class="modal-close" id="modalCloseBtn">
+      <h3>卡片库 · 从 Git 仓库内容中选择</h3>
+      <button class="modal-close" id="libCloseBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="modal-body" id="trashBody"></div>
+    <div class="lib-tools">
+      <div class="search" style="flex:1;min-width:150px;padding:7px 10px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="libSearch" type="text" placeholder="搜索标题、仓库、文件名…">
+      </div>
+      <button class="btn" id="libAddAllBtn" title="添加当前同步到的全部网页">全部添加</button>
+      <button class="btn" id="libClearBtn" title="清空已选卡片">清空选择</button>
+    </div>
+    <div class="modal-body" id="libBody"></div>
   </div>
 </div>
 
@@ -376,7 +389,7 @@
     <div class="modal-body" style="padding:20px">
       <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
         未登录状态下 GitHub API 每小时限 60 次请求。填写 Token 后提升至 5000 次/小时，可避免同步失败。<br>
-        设置 Token 后，回收站、置顶和拖拽排序将自动同步到云端，实现手机和电脑跨设备共享。<br>
+        设置 Token 后，卡片选择、置顶和拖拽排序将自动同步到云端，实现手机和电脑跨设备共享。<br>
         <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">点此创建 Token</a>，勾选 <code>public_repo</code> 权限即可。
       </p>
       <input id="tokenInput" type="password" placeholder="ghp_..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px;margin-bottom:14px" autocomplete="off">
@@ -427,12 +440,12 @@
 
 <script>
 /* ============================================================
- *  网页集合 · 自动收集器
- *  1. 拉取 has_pages 仓库
- *  2. 通过 Contents API 扫描每个仓库根目录的所有 HTML 文件
- *  3. 抓取每个页面标题，标题与首页相同的分页自动过滤
- *  4. 支持分类筛选 / 关键词搜索 / 手动删除 / 回收站恢复
- *  5. 支持置顶 / 拖拽排序（自定义顺序保存到 localStorage）
+ *  网页集合 · 卡片库模式
+ *  1. 拉取 Git 仓库内容（has_pages 仓库 + Contents API 扫描根目录 HTML）
+ *  2. 全部候选网页进入「卡片库」，由用户自主选择加入哪些卡片
+ *  3. 主页面只展示已选择的卡片；删除卡片 = 取消选择
+ *  4. 支持分类筛选 / 关键词搜索 / 置顶 / 拖拽排序 / 重命名
+ *  5. 卡片选择、置顶、排序云端同步（_prefs.json），跨设备一致
  * ============================================================ */
 (function(){
   "use strict";
@@ -443,8 +456,7 @@
   const API_CONTENTS = name => `https://api.github.com/repos/${user}/${name}/contents`;
   const PAGES_BASE = `https://${user}.github.io`;
   const CACHE_KEY = `reporthub:v4:${user}`;
-  const HIDDEN_KEY = `reporthub:hidden:v4:${user}`;
-  const RESTORED_KEY = `reporthub:restored:v4:${user}`;
+  const SELECTED_KEY = `reporthub:selected:v1:${user}`; // 已选择的卡片（白名单）
   const ORDER_KEY = `reporthub:order:v4:${user}`;
   const CACHE_TTL = 1000 * 60 * 120;
   // 云端同步：置顶 & 排序数据存储在仓库 _prefs.json 中
@@ -463,11 +475,14 @@
   const toast = $("#toast");
   const toastMsg = $("#toastMsg");
   const chipsBox = $("#chips");
-  const trashBtn = $("#trashBtn");
-  const trashCount = $("#trashCount");
-  const trashModal = $("#trashModal");
-  const trashBody = $("#trashBody");
-  const modalCloseBtn = $("#modalCloseBtn");
+  const addBtn = $("#addBtn");
+  const addCount = $("#addCount");
+  const libModal = $("#libModal");
+  const libBody = $("#libBody");
+  const libSearch = $("#libSearch");
+  const libCloseBtn = $("#libCloseBtn");
+  const libAddAllBtn = $("#libAddAllBtn");
+  const libClearBtn = $("#libClearBtn");
   const tokenBtn = $("#tokenBtn");
   const tokenModal = $("#tokenModal");
   const tokenInput = $("#tokenInput");
@@ -516,11 +531,11 @@
   }
 
   // 数据模型：allItems = [ { repo, fileName, url, title, desc, updatedAt, createdAt } ]
+  // allItems 是从 Git 仓库扫描到的全部候选网页（卡片库），selectedSet 是用户选择展示的卡片
   let allItems = [];
   let metaMap = {};          // url -> {title, desc, h1}
   let currentCategory = "all";
-  let hiddenSet = new Set(loadHidden());
-  let restoredSet = new Set(loadRestored());
+  let selectedSet = new Set(loadSelected());
 
   // 置顶 & 自定义顺序
   let pinnedList = [];
@@ -564,33 +579,19 @@
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
 
-  // 将云端偏好数据合并到本地状态（置顶、排序、回收站、恢复列表）
+  // 将云端偏好数据合并到本地状态（卡片选择、置顶、排序）
   // 返回是否有变化
   function applyCloudPrefs(cloud){
     let changed = false;
 
-    // 恢复列表：并集合并（已恢复的项目不会被重新加入回收站）
-    if(cloud.restored && Array.isArray(cloud.restored)){
-      const beforeSize = restoredSet.size;
-      const mergedRestored = new Set([...restoredSet, ...cloud.restored]);
-      if(mergedRestored.size !== beforeSize){
-        restoredSet = mergedRestored;
-        try{ localStorage.setItem(RESTORED_KEY, JSON.stringify([...restoredSet])); }catch(e){}
-        changed = true;
-      }
-    }
-
-    // 回收站：并集合并云端 hidden（排除已恢复的），但不删除本地 hiddenSet 中的项目
-    // 注意：不使用 restoredSet 去删除本地 hiddenSet，因为用户可能删除→恢复→再删除，
-    // restoredSet 仍有该 key，会导致已删除的项目被错误地从回收站移除
-    if(cloud.hidden && Array.isArray(cloud.hidden)){
-      const beforeSize = hiddenSet.size;
-      const cloudFiltered = cloud.hidden.filter(h => !restoredSet.has(h));
-      const merged = new Set([...hiddenSet, ...cloudFiltered]);
-      if(merged.size !== beforeSize){
-        hiddenSet = merged;
-        try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
-        updateTrashCount();
+    // 卡片选择：云端较新时整体采用云端（保证各设备一致）
+    if(Array.isArray(cloud.selected)){
+      const cloudSel = new Set(cloud.selected);
+      const differs = cloudSel.size !== selectedSet.size ||
+        [...cloudSel].some(k => !selectedSet.has(k));
+      if(differs && cloudIsNewer(cloud)){
+        selectedSet = cloudSel;
+        try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
         changed = true;
       }
     }
@@ -638,14 +639,22 @@
 
   // 检查本地是否有云端没有的数据（需要上传同步）
   function hasLocalExtraData(cloud){
-    const cloudHidden = new Set(cloud.hidden || []);
     const cloudPinned = new Set(cloud.pinned || []);
-    const cloudRestored = new Set(cloud.restored || []);
+    const cloudSelected = new Set(cloud.selected || []);
     const cloudNames = cloud.names || {};
-    return [...hiddenSet].some(h => !cloudHidden.has(h)) ||
+    return [...selectedSet].some(k => !cloudSelected.has(k)) ||
            [...pinnedList].some(p => !cloudPinned.has(p)) ||
-           [...restoredSet].some(r => !cloudRestored.has(r)) ||
            Object.keys(customNames).some(k => !cloudNames[k]);
+  }
+
+  // 云端偏好是否比本地最近一次修改更新（用于卡片选择的合并冲突）
+  function cloudIsNewer(cloud){
+    try{
+      if(!cloud.updated) return true; // 无时间戳视为云端较新
+      const local = localStorage.getItem(PREFS_TS_KEY);
+      if(!local) return true;
+      return new Date(cloud.updated) > new Date(local);
+    }catch(e){ return false; }
   }
 
   // 从云端加载置顶、排序和回收站
@@ -678,11 +687,12 @@
         checkAuth();
       }
 
-      // refresh 后或云端数据有变化时，强制重新过滤
+      // refresh 后或云端数据有变化时，重新渲染
       if(changed || isPostRefresh){
-        allItems = allItems.filter(it => !hiddenSet.has(itemKey(it)));
         renderChips(allItems);
         applyFilter();
+        updateAddBadge();
+        if(libModal.classList.contains("show")) renderLibrary();
       }
     }catch(e){ /* 静默失败，使用本地数据 */ }
   }
@@ -701,8 +711,6 @@
       try{
         // 先读取云端当前数据，合并后再上传（防止覆盖其他设备的数据）
         let cloudPinned = [];
-        let cloudHidden = [];
-        let cloudRestored = [];
         let cloudOrder = [];
         let cloudNames = {};
         let sha = null;
@@ -718,30 +726,25 @@
             if(fileData.content){
               const cloudJson = JSON.parse(decodeURIComponent(escape(atob(fileData.content.replace(/\s/g,"")))));
               cloudPinned = cloudJson.pinned || [];
-              cloudHidden = cloudJson.hidden || [];
-              cloudRestored = cloudJson.restored || [];
               cloudOrder = cloudJson.order || [];
               cloudNames = cloudJson.names || {};
             }
           }
         }catch(e){}
 
-        // 恢复列表：并集合并，但排除已在回收站中的项（防止删除→恢复→删除循环）
-        const mergedRestored = [...new Set([...restoredSet, ...cloudRestored])].filter(k => !hiddenSet.has(k));
-        // 回收站：并集合并，排除已恢复的项目
-        const mergedHidden = [...new Set([...hiddenSet, ...cloudHidden.filter(h => !restoredSet.has(h))])];
-        // 置顶：并集合并
-        const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])];
+        // 卡片选择：本地覆盖云端（用户最近操作的优先）
+        const mergedSelected = [...selectedSet];
+        // 置顶：并集合并（仅保留仍被选择的卡片）
+        const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])].filter(k => mergedSelected.includes(k));
         // 排序用本地覆盖（用户最近操作的优先）
         const mergedOrder = customOrder.length > 0 ? customOrder : cloudOrder;
         // 自定义名称：本地覆盖云端（本地优先，但保留云端有本地没有的）
         const mergedNames = Object.assign({}, cloudNames, customNames);
 
         const content = btoa(unescape(encodeURIComponent(JSON.stringify({
+          selected: mergedSelected,
           pinned: mergedPinned,
           order: mergedOrder,
-          hidden: mergedHidden,
-          restored: mergedRestored,
           names: mergedNames,
           pwdHash: cloudPwdHash || "",
           updated: now
@@ -818,7 +821,7 @@
   }
 
   function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&quot;","'":"&#39;"}[c]));
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
 
   function categorize(item, meta){
@@ -840,26 +843,25 @@
     toast._t = setTimeout(()=> toast.className = "toast", 2600);
   }
 
-  // ---- 黑名单 ----
-  function loadHidden(){
-    try{ return JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]"); }
+  // ---- 卡片选择（白名单）----
+  function loadSelected(){
+    try{ return JSON.parse(localStorage.getItem(SELECTED_KEY) || "[]"); }
     catch(e){ return []; }
   }
-  function loadRestored(){
-    try{ return JSON.parse(localStorage.getItem(RESTORED_KEY) || "[]"); }
-    catch(e){ return []; }
+  let saveSelTimer = null;
+  function saveSelected(syncNow){
+    try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
+    updateAddBadge();
+    if(syncNow) saveCloudPrefs(true);
+    else{
+      clearTimeout(saveSelTimer);
+      saveSelTimer = setTimeout(()=>saveCloudPrefs(false), 1500);
+    }
   }
-  function saveHidden(){
-    try{ localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet])); }catch(e){}
-    try{ localStorage.setItem(RESTORED_KEY, JSON.stringify([...restoredSet])); }catch(e){}
-    updateTrashCount();
-    // 删除/恢复操作立即同步到云端，不防抖
-    saveCloudPrefs(true);
-  }
-  function updateTrashCount(){
-    const n = hiddenSet.size;
-    trashCount.textContent = n;
-    trashCount.style.display = n > 0 ? "flex" : "none";
+  function updateAddBadge(){
+    const n = allItems.filter(it => !selectedSet.has(itemKey(it))).length;
+    addCount.textContent = n;
+    addCount.style.display = n > 0 ? "flex" : "none";
   }
 
   // ---- 抓取页面标题 ----
@@ -958,11 +960,11 @@
     return repos.filter(r => r.has_pages && !r.is_template && !r.fork && !r.archived);
   }
 
-  // ---- 渲染：分类标签 ----
+  // ---- 渲染：分类标签（只统计已选择的卡片）----
   function renderChips(items){
     const counts = {all:0, report:0, tool:0, other:0};
     items.forEach(it => {
-      if(hiddenSet.has(itemKey(it))) return;
+      if(!selectedSet.has(itemKey(it))) return;
       counts.all++;
       const cat = categorize(it, metaMap[it.url]);
       counts[cat.key] = (counts[cat.key] || 0) + 1;
@@ -1013,8 +1015,15 @@
   // ---- 渲染：卡片 ----
   function renderCards(items){
     if(!items.length){
-      stateBox('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-        "没有匹配的网页","试试更换关键词、切换分类，或点击同步刷新数据。","重新同步","load(true)");
+      if(selectedSet.size === 0 && allItems.length){
+        stateBox('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+          `还没有选择要展示的网页`,
+          `已从 Git 仓库同步到 ${allItems.length} 个网页，点击下方按钮挑选要加入的卡片。`,
+          "选择卡片","window.__openLib()");
+      }else{
+        stateBox('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+          "没有匹配的网页","试试更换关键词、切换分类，或点击同步刷新数据。","重新同步","load(true)");
+      }
       resultCount.textContent = "";
       return;
     }
@@ -1145,10 +1154,10 @@
     return fn.replace(/\.html?$/i,"");
   }
 
-  // ---- 获取当前可见列表 ----
+  // ---- 获取当前可见列表（仅已选择的卡片）----
   function getVisibleItems(){
     return allItems.filter(it => {
-      if(hiddenSet.has(itemKey(it))) return false;
+      if(!selectedSet.has(itemKey(it))) return false;
       if(currentCategory !== "all" && categorize(it).key !== currentCategory) return false;
       const q = searchInput.value.trim().toLowerCase();
       if(q){
@@ -1359,24 +1368,23 @@
     toastShow("排序已保存", "ok");
   }
 
-  // ---- 删除确认 ----
+  // ---- 移除卡片确认（取消选择，卡片保留在卡片库中）----
   function showDeleteConfirm(key, cardEl){
     const overlay = document.createElement("div");
     overlay.className = "card-confirm";
     overlay.innerHTML = `
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-      <p>确定要删除「${escapeHtml(key)}」吗？<br>删除后可在回收站恢复。</p>
+      <p>确定要移除「${escapeHtml(key)}」卡片吗？<br>移除后可随时在「添加卡片」中重新添加。</p>
       <div class="actions">
         <button class="btn-cancel">取消</button>
-        <button class="btn-danger">确认删除</button>
+        <button class="btn-danger">确认移除</button>
       </div>`;
     cardEl.appendChild(overlay);
     overlay.querySelector(".btn-cancel").addEventListener("click", ()=> overlay.remove());
     overlay.querySelector(".btn-danger").addEventListener("click", ()=>{
-      hiddenSet.add(key);
-      restoredSet.delete(key);
-      saveHidden();
-      // 删除时同时从 pinned 和 order 中移除
+      selectedSet.delete(key);
+      saveSelected(true);
+      // 移除时同时从 pinned 和 order 中移除
       pinnedList = pinnedList.filter(k => k !== key);
       pinnedSet.delete(key);
       customOrder = customOrder.filter(k => k !== key);
@@ -1385,67 +1393,90 @@
       cardEl.style.transform = "scale(.9)";
       cardEl.style.opacity = "0";
       setTimeout(()=>{
-        allItems = allItems.filter(it => itemKey(it) !== key);
         renderChips(allItems);
         applyFilter();
       }, 300);
-      toastShow(`已删除「${key}」，可在回收站恢复`, "ok");
+      toastShow(`已移除「${key}」，可在添加卡片中重新添加`, "ok");
     });
   }
 
-  // ---- 回收站 ----
-  function renderTrash(){
-    const hidden = [...hiddenSet];
-    if(!hidden.length){
-      trashBody.innerHTML = `<div class="empty">回收站为空</div>`;
+  // ---- 卡片库：展示 Git 仓库扫描到的全部网页，自主选择加入 ----
+  function renderLibrary(){
+    if(!allItems.length){
+      libBody.innerHTML = `<div class="empty">卡片库为空，请点击工具栏「同步」按钮拉取 Git 仓库内容</div>`;
       return;
     }
-    const cache = loadAnyCache();
-    const cachedItems = cache ? cache.items : [];
-    trashBody.innerHTML = hidden.map(key=>{
-      const it = cachedItems.find(x => itemKey(x) === key);
-      const name = it ? (metaMap[it.url]?.h1 || metaMap[it.url]?.desc || metaMap[it.url]?.title || it.repo.description || key) : key;
-      return `<div class="trash-item">
-        <div class="info">
-          <div class="name">${escapeHtml(name)}</div>
-          <div class="repo">${escapeHtml(key)}</div>
-        </div>
-        <button class="btn-restore" data-restore="${escapeHtml(key)}">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
-          恢复
-        </button>
+    const q = (libSearch.value || "").trim().toLowerCase();
+    let list = allItems;
+    if(q){
+      list = allItems.filter(it=>{
+        const meta = metaMap[it.url] || {};
+        const hay = [it.repo.name, it.repo.description, it.fileName, meta.title, meta.desc, meta.h1, customNames[itemKey(it)]]
+          .filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    // 按仓库分组
+    const groups = {};
+    list.forEach(it=>{
+      (groups[it.repo.name] = groups[it.repo.name] || []).push(it);
+    });
+    const repoNames = Object.keys(groups).sort((a,b)=>{
+      const ra = groups[a][0].repo.updated_at, rb = groups[b][0].repo.updated_at;
+      return new Date(rb) - new Date(ra);
+    });
+    let h = "";
+    repoNames.forEach(rn=>{
+      h += `<div class="lib-group">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+        ${escapeHtml(rn)}
       </div>`;
-    }).join("");
-    trashBody.querySelectorAll("[data-restore]").forEach(btn=>{
+      groups[rn].forEach(it=>{
+        const key = itemKey(it);
+        const meta = metaMap[it.url] || {};
+        const title = meta.h1 || meta.desc || meta.title || it.repo.description || fileNameLabel(it.fileName);
+        const sel = selectedSet.has(key);
+        h += `<div class="lib-item ${sel?'on':''}">
+          <div class="info">
+            <div class="name">${escapeHtml(customNames[key] || title)}</div>
+            <div class="repo">${escapeHtml(it.fileName)}${it.repo.description?` · ${escapeHtml(it.repo.description)}`:""}</div>
+          </div>
+          <button class="btn-toggle ${sel?'on':''}" data-lib="${escapeHtml(key)}">${sel?"已添加":"添加"}</button>
+        </div>`;
+      });
+    });
+    libBody.innerHTML = h;
+    libBody.querySelectorAll("[data-lib]").forEach(btn=>{
       btn.addEventListener("click", ()=>{
-        const key = btn.dataset.restore;
-        hiddenSet.delete(key);
-        restoredSet.add(key);
-        saveHidden();
-        btn.closest(".trash-item").style.transition = "all .3s";
-        btn.closest(".trash-item").style.opacity = "0";
-        setTimeout(()=>{
-          renderTrash();
-          const cache = loadAnyCache();
-          if(cache){
-            const cachedItem = cache.items.find(x => itemKey(x) === key);
-            if(cachedItem && !allItems.some(it => itemKey(it) === key)){
-              allItems.push(cachedItem);
-            }
-          }
-          renderChips(allItems);
-          applyFilter();
-        }, 300);
-        toastShow(`已恢复「${key}」`, "ok");
+        const key = btn.dataset.lib;
+        if(selectedSet.has(key)){
+          selectedSet.delete(key);
+          pinnedList = pinnedList.filter(k => k !== key);
+          pinnedSet.delete(key);
+          customOrder = customOrder.filter(k => k !== key);
+          savePinnedOrder();
+          toastShow("已移除卡片","ok");
+        }else{
+          selectedSet.add(key);
+          toastShow("已添加卡片","ok");
+        }
+        saveSelected(true);
+        renderLibrary();
+        renderChips(allItems);
+        applyFilter();
       });
     });
   }
+  window.__openLib = function(){
+    renderLibrary();
+    libModal.classList.add("show");
+  };
 
   // ---- 筛选 & 排序 ----
   function applyFilter(){
     const q = searchInput.value.trim().toLowerCase();
     const sort = sortSel.value;
-    let list = allItems.filter(it => !hiddenSet.has(itemKey(it)));
+    let list = allItems.filter(it => selectedSet.has(itemKey(it)));
     if(currentCategory !== "all"){
       list = list.filter(it => categorize(it).key === currentCategory);
     }
@@ -1509,9 +1540,10 @@
         renderSkeleton(4);
         await loadCloudPrefsAsync();
       }
-      allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
+      allItems = cache.items;
       metaMap = cache.meta || {};
       renderChips(allItems);
+      updateAddBadge();
       applyFilter();
     }else{
       renderSkeleton(4);
@@ -1535,34 +1567,34 @@
       const pageRepos = filterRepos(repos);
       const items = await buildItems(pageRepos);
 
-      // 先加载云端回收站和置顶数据，确保过滤时使用最新的隐藏列表
-      // 传入 true 强制重新过滤（refresh 后 allItems 可能重建包含已删除的项）
+      // 先加载云端偏好数据（卡片选择 + 置顶 + 排序），确保过滤时使用最新选择列表
       await loadCloudPrefsAsync(true);
 
-      // 抓取每个网页的标题（回收站里的跳过，不再浪费请求）
+      // 抓取每个网页的标题（卡片库展示需要，全部抓取）
       const metas = await Promise.allSettled(
-        items.map(it => {
-          if(hiddenSet.has(itemKey(it))) return Promise.resolve([it.url, null]);
-          return fetchPageMeta(it.url).then(m => [it.url, m]);
-        })
+        items.map(it => fetchPageMeta(it.url).then(m => [it.url, m]))
       );
       metas.forEach(m=>{
         if(m.status === "fulfilled" && m.value && m.value[1]){ metaMap[m.value[0]] = m.value[1]; }
       });
 
       const filtered = filterSubpages(items);
-      allItems = filtered.filter(it => !hiddenSet.has(itemKey(it)));
+      allItems = filtered;
 
       saveCache(filtered);
       renderChips(allItems);
+      updateAddBadge();
       applyFilter();
-      if(announce) toastShow(`已同步 ${allItems.length} 个网页`, "ok");
+      if(libModal.classList.contains("show")) renderLibrary();
+      const selCount = allItems.filter(it => selectedSet.has(itemKey(it))).length;
+      if(announce) toastShow(`已同步 ${allItems.length} 个网页，已选 ${selCount} 个`, "ok");
     }catch(e){
       const cache = loadAnyCache();
       if(cache){
-        allItems = cache.items.filter(it => !hiddenSet.has(itemKey(it)));
+        allItems = cache.items;
         metaMap = cache.meta || {};
         renderChips(allItems);
+        updateAddBadge();
         applyFilter();
         toastShow(`同步失败，已显示缓存数据`, "err");
         return;
@@ -1590,13 +1622,35 @@
   sortSel.addEventListener("change", applyFilter);
   refreshBtn.addEventListener("click", ()=> load(true));
 
-  trashBtn.addEventListener("click", ()=>{
-    renderTrash();
-    trashModal.classList.add("show");
+  addBtn.addEventListener("click", ()=>{
+    renderLibrary();
+    libModal.classList.add("show");
+    setTimeout(()=> libSearch.focus(), 100);
   });
-  modalCloseBtn.addEventListener("click", ()=> trashModal.classList.remove("show"));
-  trashModal.addEventListener("click", e=>{
-    if(e.target === trashModal) trashModal.classList.remove("show");
+  libCloseBtn.addEventListener("click", ()=> libModal.classList.remove("show"));
+  libModal.addEventListener("click", e=>{
+    if(e.target === libModal) libModal.classList.remove("show");
+  });
+  libSearch.addEventListener("input", ()=>{
+    clearTimeout(libSearch._t);
+    libSearch._t = setTimeout(renderLibrary, 160);
+  });
+  libAddAllBtn.addEventListener("click", ()=>{
+    allItems.forEach(it => selectedSet.add(itemKey(it)));
+    saveSelected(true);
+    renderLibrary();
+    renderChips(allItems);
+    applyFilter();
+    toastShow(`已添加全部 ${allItems.length} 个网页`, "ok");
+  });
+  libClearBtn.addEventListener("click", ()=>{
+    if(!selectedSet.size){ toastShow("当前没有已选择的卡片", "err"); return; }
+    selectedSet.clear();
+    saveSelected(true);
+    renderLibrary();
+    renderChips(allItems);
+    applyFilter();
+    toastShow("已清空选择", "ok");
   });
 
   // Token 模态框事件
@@ -1626,7 +1680,7 @@
   });
 
   document.addEventListener("keydown", e=>{
-    if(e.key === "Escape"){ trashModal.classList.remove("show"); tokenModal.classList.remove("show"); }
+    if(e.key === "Escape"){ libModal.classList.remove("show"); tokenModal.classList.remove("show"); }
   });
 
   // ---- 登录密码事件 ----
@@ -1668,7 +1722,7 @@
     if(!val){ sessionStorage.removeItem(AUTH_KEY); }
   });
 
-  updateTrashCount();
+  updateAddBadge();
 
   // ---- 初始化：先检查密码，再加载内容 ----
   async function initPage(){
