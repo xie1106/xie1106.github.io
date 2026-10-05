@@ -472,9 +472,10 @@
   const user = new URLSearchParams(location.search).get("user") || DEFAULT_USER;
   const API_REPOS = `https://api.github.com/users/${user}/repos?sort=updated&per_page=100`;
   const REPOS_CACHE_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/repos-cache.json`;
+  const CATALOG_CACHE_RAW = `https://raw.githubusercontent.com/${user}/${user}.github.io/main/catalog-cache.json`;
   const API_CONTENTS = name => `https://api.github.com/repos/${user}/${name}/contents`;
   const PAGES_BASE = `https://${user}.github.io`;
-  const CACHE_KEY = `reporthub:v4:${user}`;
+  const CACHE_KEY = `reporthub:v5:${user}`;
   const SELECTED_KEY = `reporthub:selected:v1:${user}`; // 已选择的卡片（白名单）
   const SITES_KEY = `reporthub:sites:v1:${user}`;        // 自定义网站列表
   const ORDER_KEY = `reporthub:order:v4:${user}`;
@@ -1129,6 +1130,36 @@
   }
 
   // 构建网页项列表
+  // 读取内置候选快照（限流/扫描失败时的兜底，保证候选完整且自带标题）
+  let catalogSnapshot = null;
+  async function fetchCatalogSnapshot(){
+    if(catalogSnapshot) return catalogSnapshot;
+    const res = await fetchWithTimeout(CATALOG_CACHE_RAW + `?t=${Date.now()}`, {cache:'no-store'}, 8000);
+    if(!res.ok) throw new Error("snapshot " + res.status);
+    const data = await res.json();
+    if(!data || !Array.isArray(data.items)) throw new Error("snapshot format");
+    catalogSnapshot = data;
+    return data;
+  }
+
+  // 将快照候选合并进扫描结果（按 itemKey 去重），并用快照标题预填充 metaMap
+  function mergeSnapshot(items){
+    return fetchCatalogSnapshot().then(snap => {
+      const have = new Set(items.map(itemKey));
+      snap.items.forEach(raw => {
+        const it = {
+          repo: raw.repo, fileName: raw.fileName, url: raw.url,
+          title: raw.title || raw.repo.name, desc: raw.desc || "",
+          updatedAt: raw.updatedAt, createdAt: raw.createdAt
+        };
+        if(!have.has(itemKey(it))){
+          items.push(it); have.add(itemKey(it));
+        }
+        if(raw.title && !metaMap[it.url]) metaMap[it.url] = { title: raw.title };
+      });
+    }).catch(()=>{ /* 快照不可用时忽略，仅用 API 扫描结果 */ });
+  }
+
   async function buildItems(repos){
     const items = [];
     await Promise.all(
@@ -1800,6 +1831,8 @@
       if(usedReposCache && announce) toastShow("API 限流，仓库列表来自缓存快照", "err");
       const pageRepos = filterRepos(repos);
       const items = await buildItems(pageRepos);
+      // 合并内置快照候选：扫描失败/限流的仓库由快照补全，标题也直接复用
+      await mergeSnapshot(items);
 
       // 先加载云端偏好数据（卡片选择 + 置顶 + 排序），确保过滤时使用最新选择列表
       await loadCloudPrefsAsync(true);
