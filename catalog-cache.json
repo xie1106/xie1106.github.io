@@ -1,13 +1,13 @@
 {
-  "updated": "2026-10-05T12:12:25Z",
+  "updated": "2026-10-05T12:33:47Z",
   "user": "xie1106",
-  "count": 16,
+  "count": 11,
   "items": [
     {
       "repo": {
         "name": "warehouse-schedule",
         "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
+        "updated_at": "2026-10-05T12:28:49Z",
         "created_at": "2026-06-09T09:58:17Z",
         "html_url": "https://github.com/xie1106/warehouse-schedule"
       },
@@ -15,89 +15,14 @@
       "url": "https://xie1106.github.io/warehouse-schedule/defect-refund-sop.html",
       "title": "次品退货 SOP（详细版） — 捷展贸易",
       "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
+      "updatedAt": "2026-10-05T12:28:49Z",
       "createdAt": "2026-06-09T09:58:17Z"
     },
     {
       "repo": {
         "name": "warehouse-schedule",
         "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
-        "created_at": "2026-06-09T09:58:17Z",
-        "html_url": "https://github.com/xie1106/warehouse-schedule"
-      },
-      "fileName": "demo-A.html",
-      "url": "https://xie1106.github.io/warehouse-schedule/demo-A.html",
-      "title": "方案A - 自动拉取SKU列表",
-      "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
-      "createdAt": "2026-06-09T09:58:17Z"
-    },
-    {
-      "repo": {
-        "name": "warehouse-schedule",
-        "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
-        "created_at": "2026-06-09T09:58:17Z",
-        "html_url": "https://github.com/xie1106/warehouse-schedule"
-      },
-      "fileName": "demo-B.html",
-      "url": "https://xie1106.github.io/warehouse-schedule/demo-B.html",
-      "title": "方案B - 手动输入SKU",
-      "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
-      "createdAt": "2026-06-09T09:58:17Z"
-    },
-    {
-      "repo": {
-        "name": "warehouse-schedule",
-        "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
-        "created_at": "2026-06-09T09:58:17Z",
-        "html_url": "https://github.com/xie1106/warehouse-schedule"
-      },
-      "fileName": "demo-merge-A.html",
-      "url": "https://xie1106.github.io/warehouse-schedule/demo-merge-A.html",
-      "title": "方案A - 显示合并（折叠）",
-      "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
-      "createdAt": "2026-06-09T09:58:17Z"
-    },
-    {
-      "repo": {
-        "name": "warehouse-schedule",
-        "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
-        "created_at": "2026-06-09T09:58:17Z",
-        "html_url": "https://github.com/xie1106/warehouse-schedule"
-      },
-      "fileName": "demo-merge-B.html",
-      "url": "https://xie1106.github.io/warehouse-schedule/demo-merge-B.html",
-      "title": "方案B - 数据库合并",
-      "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
-      "createdAt": "2026-06-09T09:58:17Z"
-    },
-    {
-      "repo": {
-        "name": "warehouse-schedule",
-        "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
-        "created_at": "2026-06-09T09:58:17Z",
-        "html_url": "https://github.com/xie1106/warehouse-schedule"
-      },
-      "fileName": "facesheet.html",
-      "url": "https://xie1106.github.io/warehouse-schedule/facesheet.html",
-      "title": "电子面单",
-      "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
-      "createdAt": "2026-06-09T09:58:17Z"
-    },
-    {
-      "repo": {
-        "name": "warehouse-schedule",
-        "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
+        "updated_at": "2026-10-05T12:28:49Z",
         "created_at": "2026-06-09T09:58:17Z",
         "html_url": "https://github.com/xie1106/warehouse-schedule"
       },
@@ -105,14 +30,14 @@
       "url": "https://xie1106.github.io/warehouse-schedule/",
       "title": "排班系统",
       "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
+      "updatedAt": "2026-10-05T12:28:49Z",
       "createdAt": "2026-06-09T09:58:17Z"
     },
     {
       "repo": {
         "name": "warehouse-schedule",
         "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
+        "updated_at": "2026-10-05T12:28:49Z",
         "created_at": "2026-06-09T09:58:17Z",
         "html_url": "https://github.com/xie1106/warehouse-schedule"
       },
@@ -120,14 +45,14 @@
       "url": "https://xie1106.github.io/warehouse-schedule/%E5%91%98%E5%B7%A5%E6%8C%87%E5%AE%9A%E4%BC%91%E7%AE%A1%E7%90%86.html",
       "title": "员工指定休管理",
       "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
+      "updatedAt": "2026-10-05T12:28:49Z",
       "createdAt": "2026-06-09T09:58:17Z"
     },
     {
       "repo": {
         "name": "warehouse-schedule",
         "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
+        "updated_at": "2026-10-05T12:28:49Z",
         "created_at": "2026-06-09T09:58:17Z",
         "html_url": "https://github.com/xie1106/warehouse-schedule"
       },
@@ -135,14 +60,14 @@
       "url": "https://xie1106.github.io/warehouse-schedule/%E6%8E%92%E7%8F%AD%E8%A1%A8%E7%94%9F%E6%88%90.html",
       "title": "排班表生成",
       "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
+      "updatedAt": "2026-10-05T12:28:49Z",
       "createdAt": "2026-06-09T09:58:17Z"
     },
     {
       "repo": {
         "name": "warehouse-schedule",
         "description": "warehouse-schedule",
-        "updated_at": "2026-10-05T12:05:01Z",
+        "updated_at": "2026-10-05T12:28:49Z",
         "created_at": "2026-06-09T09:58:17Z",
         "html_url": "https://github.com/xie1106/warehouse-schedule"
       },
@@ -150,14 +75,14 @@
       "url": "https://xie1106.github.io/warehouse-schedule/%E9%80%80%E8%B4%A7%E9%9D%A2%E5%8D%95.html",
       "title": "退货面单系统",
       "desc": "warehouse-schedule",
-      "updatedAt": "2026-10-05T12:05:01Z",
+      "updatedAt": "2026-10-05T12:28:49Z",
       "createdAt": "2026-06-09T09:58:17Z"
     },
     {
       "repo": {
         "name": "xie1106.github.io",
         "description": "?????? - ???? GitHub Pages ??",
-        "updated_at": "2026-10-05T12:04:31Z",
+        "updated_at": "2026-10-05T12:23:56Z",
         "created_at": "2026-07-25T06:46:40Z",
         "html_url": "https://github.com/xie1106/xie1106.github.io"
       },
@@ -165,7 +90,7 @@
       "url": "https://xie1106.github.io/xie1106.github.io/",
       "title": "网页集合",
       "desc": "?????? - ???? GitHub Pages ??",
-      "updatedAt": "2026-10-05T12:04:31Z",
+      "updatedAt": "2026-10-05T12:23:56Z",
       "createdAt": "2026-07-25T06:46:40Z"
     },
     {
@@ -248,26 +173,8 @@
     "https://xie1106.github.io/warehouse-schedule/defect-refund-sop.html": {
       "title": "次品退货 SOP（详细版） — 捷展贸易"
     },
-    "https://xie1106.github.io/warehouse-schedule/demo-A.html": {
-      "title": "方案A - 自动拉取SKU列表"
-    },
-    "https://xie1106.github.io/warehouse-schedule/demo-B.html": {
-      "title": "方案B - 手动输入SKU"
-    },
-    "https://xie1106.github.io/warehouse-schedule/demo-merge-A.html": {
-      "title": "方案A - 显示合并（折叠）"
-    },
-    "https://xie1106.github.io/warehouse-schedule/demo-merge-B.html": {
-      "title": "方案B - 数据库合并"
-    },
-    "https://xie1106.github.io/warehouse-schedule/facesheet.html": {
-      "title": "电子面单"
-    },
     "https://xie1106.github.io/warehouse-schedule/": {
       "title": "排班系统"
-    },
-    "https://xie1106.github.io/warehouse-schedule/%E5%8F%AB%E8%BD%A6%E5%B7%A5%E4%BD%9C%E5%8F%B0.html": {
-      "title": "叫车工作台"
     },
     "https://xie1106.github.io/warehouse-schedule/%E5%91%98%E5%B7%A5%E6%8C%87%E5%AE%9A%E4%BC%91%E7%AE%A1%E7%90%86.html": {
       "title": "员工指定休管理"
