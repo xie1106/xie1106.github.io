@@ -147,6 +147,7 @@
   .badge.report{background:#eef2ff;color:#4f46e5}
   .badge.tool{background:#ecfdf5;color:#059669}
   .badge.other{background:#fff7ed;color:#c2410c}
+  .badge.site{background:#f0f9ff;color:#0284c7}
   .badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
   .card-date{font-size:11px;color:var(--muted-2);white-space:nowrap}
   .card-actions{
@@ -257,6 +258,14 @@
   .modal-body{padding:14px 22px;overflow-y:auto;flex:1}
   .modal-body .empty{text-align:center;color:var(--muted-2);padding:36px 0;font-size:13px}
   .lib-tools{display:flex;gap:8px;padding:14px 22px 0;flex-wrap:wrap;align-items:center}
+  .lib-add{display:flex;gap:8px;padding:12px 22px 0;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);margin-top:12px;padding-bottom:14px}
+  .lib-add input{
+    border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;
+    background:var(--surface-2);color:var(--text);outline:none;min-width:0;
+  }
+  .lib-add input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .lib-add .inp-url{flex:2;min-width:180px}
+  .lib-add .inp-title{flex:1;min-width:120px}
   .lib-group{font-size:11px;font-weight:700;color:var(--muted-2);letter-spacing:.5px;padding:14px 0 6px;font-family:'SFMono-Regular',Consolas,monospace;display:flex;align-items:center;gap:6px}
   .lib-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
   .lib-item:last-child{border-bottom:none}
@@ -268,6 +277,8 @@
   .btn-toggle:hover{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn-toggle.on:hover{background:var(--rose);border-color:var(--rose)}
+  .btn-delsite{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--border);color:var(--muted-2);display:inline-flex;align-items:center;justify-content:center;transition:all .18s}
+  .btn-delsite:hover{background:var(--rose);border-color:var(--rose);color:#fff}
 
   .footer{max-width:1180px;margin:0 auto;padding:20px 24px;text-align:center;color:var(--muted-2);font-size:12px}
   .footer a{color:var(--accent);font-weight:600}
@@ -374,6 +385,11 @@
       <button class="btn" id="libAddAllBtn" title="添加当前同步到的全部网页">全部添加</button>
       <button class="btn" id="libClearBtn" title="清空已选卡片">清空选择</button>
     </div>
+    <div class="lib-add">
+      <input id="siteUrl" class="inp-url" type="text" placeholder="添加任意网站地址，如 https://example.com" autocomplete="off">
+      <input id="siteTitle" class="inp-title" type="text" placeholder="标题（留空自动抓取）" maxlength="60" autocomplete="off">
+      <button class="btn btn-primary" id="siteAddBtn" style="background:var(--accent);color:#fff;border:none">添加网站</button>
+    </div>
     <div class="modal-body" id="libBody"></div>
   </div>
 </div>
@@ -443,9 +459,10 @@
  *  网页集合 · 卡片库模式
  *  1. 拉取 Git 仓库内容（has_pages 仓库 + Contents API 扫描根目录 HTML）
  *  2. 全部候选网页进入「卡片库」，由用户自主选择加入哪些卡片
- *  3. 主页面只展示已选择的卡片；删除卡片 = 取消选择
- *  4. 支持分类筛选 / 关键词搜索 / 置顶 / 拖拽排序 / 重命名
- *  5. 卡片选择、置顶、排序云端同步（_prefs.json），跨设备一致
+ *  3. 支持手动添加任意外部网站作为卡片（自定义网站）
+ *  4. 主页面只展示已选择的卡片；删除卡片 = 取消选择
+ *  5. 支持分类筛选 / 关键词搜索 / 置顶 / 拖拽排序 / 重命名
+ *  6. 卡片选择、自定义网站、置顶、排序云端同步（_prefs.json），跨设备一致
  * ============================================================ */
 (function(){
   "use strict";
@@ -457,6 +474,7 @@
   const PAGES_BASE = `https://${user}.github.io`;
   const CACHE_KEY = `reporthub:v4:${user}`;
   const SELECTED_KEY = `reporthub:selected:v1:${user}`; // 已选择的卡片（白名单）
+  const SITES_KEY = `reporthub:sites:v1:${user}`;        // 自定义网站列表
   const ORDER_KEY = `reporthub:order:v4:${user}`;
   const CACHE_TTL = 1000 * 60 * 120;
   // 云端同步：置顶 & 排序数据存储在仓库 _prefs.json 中
@@ -483,6 +501,9 @@
   const libCloseBtn = $("#libCloseBtn");
   const libAddAllBtn = $("#libAddAllBtn");
   const libClearBtn = $("#libClearBtn");
+  const siteUrlInput = $("#siteUrl");
+  const siteTitleInput = $("#siteTitle");
+  const siteAddBtn = $("#siteAddBtn");
   const tokenBtn = $("#tokenBtn");
   const tokenModal = $("#tokenModal");
   const tokenInput = $("#tokenInput");
@@ -575,11 +596,11 @@
   }
   loadCustomNames();
 
-  // ---- 云端同步（置顶 & 排序 & 回收站 跨设备同步）----
+  // ---- 云端同步（卡片选择、自定义网站、置顶 & 排序 跨设备同步）----
   let cloudSaveTimer = null;
   let cloudPrefsLoaded = false;
 
-  // 将云端偏好数据合并到本地状态（卡片选择、置顶、排序）
+  // 将云端偏好数据合并到本地状态（卡片选择、自定义网站、置顶、排序）
   // 返回是否有变化
   function applyCloudPrefs(cloud){
     let changed = false;
@@ -592,6 +613,24 @@
       if(differs && cloudIsNewer(cloud)){
         selectedSet = cloudSel;
         try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
+        changed = true;
+      }
+    }
+
+    // 自定义网站：云端较新时整体采用云端（与卡片选择一致，最后写入者优先）
+    if(Array.isArray(cloud.sites)){
+      const cloudSites = cloud.sites.filter(s => s && s.url);
+      const differs = cloudSites.length !== customSites.length ||
+        cloudSites.some(cs => !customSites.some(s => s.url === cs.url));
+      if(differs && cloudIsNewer(cloud)){
+        customSites = cloudSites.map(cs => ({
+          id: cs.id || "s" + Math.random().toString(36).slice(2, 10),
+          url: cs.url,
+          title: cs.title || "",
+          addedAt: cs.addedAt || new Date().toISOString()
+        }));
+        try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
+        ensureSites();
         changed = true;
       }
     }
@@ -641,9 +680,11 @@
   function hasLocalExtraData(cloud){
     const cloudPinned = new Set(cloud.pinned || []);
     const cloudSelected = new Set(cloud.selected || []);
+    const cloudSites = new Set((cloud.sites || []).filter(s => s && s.url).map(s => s.url));
     const cloudNames = cloud.names || {};
     return [...selectedSet].some(k => !cloudSelected.has(k)) ||
            [...pinnedList].some(p => !cloudPinned.has(p)) ||
+           customSites.some(s => !cloudSites.has(s.url)) ||
            Object.keys(customNames).some(k => !cloudNames[k]);
   }
 
@@ -734,6 +775,8 @@
 
         // 卡片选择：本地覆盖云端（用户最近操作的优先）
         const mergedSelected = [...selectedSet];
+        // 自定义网站：本地覆盖云端（最后写入者优先，删除也能同步）
+        const mergedSites = [...customSites];
         // 置顶：并集合并（仅保留仍被选择的卡片）
         const mergedPinned = [...new Set([...pinnedList, ...cloudPinned])].filter(k => mergedSelected.includes(k));
         // 排序用本地覆盖（用户最近操作的优先）
@@ -743,6 +786,7 @@
 
         const content = btoa(unescape(encodeURIComponent(JSON.stringify({
           selected: mergedSelected,
+          sites: mergedSites,
           pinned: mergedPinned,
           order: mergedOrder,
           names: mergedNames,
@@ -801,7 +845,7 @@
     return `${PAGES_BASE}/${repoName}/${fileName}`;
   }
 
-  function itemKey(item){ return `${item.repo.name}/${item.fileName}`; }
+  function itemKey(item){ return item.isSite ? "site:" + item.url : `${item.repo.name}/${item.fileName}`; }
 
   function relativeTime(iso){
     const d = new Date(iso); const now = Date.now();
@@ -830,6 +874,7 @@
     const fileName = (item.fileName || "").toLowerCase();
     if(/排班|schedule|系统|管理|工具|tool|员工|指定休/.test(title)) return {key:"tool",label:"工具系统"};
     if(/报告|分析|report|analysis|总结|看板|dashboard|商品|搬仓/.test(title)) return {key:"report",label:"分析报告"};
+    if(item.isSite) return {key:"site",label:"外部网站"};
     const full = (item.repo.name + " " + (item.repo.description||"") + " " + fileName + " " + title).toLowerCase();
     if(/系统|排班|schedule|管理|工具|system|tool/.test(full)) return {key:"tool",label:"工具系统"};
     if(/报告|分析|report|analysis|总结|看板/.test(full)) return {key:"report",label:"分析报告"};
@@ -862,6 +907,99 @@
     const n = allItems.filter(it => !selectedSet.has(itemKey(it))).length;
     addCount.textContent = n;
     addCount.style.display = n > 0 ? "flex" : "none";
+  }
+
+  // ---- 自定义网站（手动添加的任意网址）----
+  let customSites = [];
+  function loadCustomSites(){
+    try{ customSites = JSON.parse(localStorage.getItem(SITES_KEY) || "[]"); }catch(e){ customSites = []; }
+  }
+  loadCustomSites();
+
+  // 自定义网站转为卡片项（与 Git 仓库扫描项结构对齐）
+  function sitesToItems(){
+    return customSites.map(s => ({
+      repo: {
+        name: s.url.replace(/^https?:\/\//i,"").replace(/\/+$/,""),
+        description: "",
+        html_url: "",
+        updated_at: s.addedAt,
+        created_at: s.addedAt
+      },
+      fileName: "自定义网站",
+      url: s.url,
+      title: s.title || "",
+      desc: "",
+      updatedAt: s.addedAt,
+      createdAt: s.addedAt,
+      isSite: true,
+      siteId: s.id
+    }));
+  }
+
+  // 将最新自定义网站合并进 allItems（Git 仓库项重建后调用）
+  function ensureSites(){
+    allItems = allItems.filter(it => !it.isSite).concat(sitesToItems());
+  }
+
+  function saveCustomSites(syncNow){
+    try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
+    ensureSites();
+    renderChips(allItems);
+    applyFilter();
+    updateAddBadge();
+    if(libModal.classList.contains("show")) renderLibrary();
+    if(syncNow) saveCloudPrefs(true);
+  }
+
+  // 添加自定义网站：url 必填，标题留空则尝试自动抓取（跨域失败则用域名）
+  async function addCustomSite(){
+    let url = (siteUrlInput.value || "").trim();
+    if(!url){ toastShow("请输入网站地址", "err"); return; }
+    if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+    try{
+      const u = new URL(url);
+      if(!u.hostname.includes(".")) throw new Error("bad host");
+    }catch(e){
+      toastShow("网站地址无效", "err"); return;
+    }
+    if(customSites.some(s => s.url === url) || allItems.some(it => !it.isSite && it.url === url)){
+      toastShow("该网址已在卡片库中", "err"); return;
+    }
+    const title = (siteTitleInput.value || "").trim();
+    const site = { id: "s" + Date.now().toString(36), url, title: title || "", addedAt: new Date().toISOString() };
+    customSites.push(site);
+    siteUrlInput.value = "";
+    siteTitleInput.value = "";
+    saveCustomSites(true);
+    toastShow("已添加网站，点击列表中的「添加」加入主页", "ok");
+    // 异步尝试抓取页面标题（多数网站跨域受限，失败则保持域名显示）
+    if(!title){
+      fetchPageMeta(url).then(m=>{
+        if(m && (m.title || m.h1)){
+          const s = customSites.find(x => x.id === site.id);
+          if(s && !s.title){
+            s.title = (m.h1 || m.title).slice(0, 60);
+            saveCustomSites(false);
+          }
+        }
+      });
+    }
+  }
+
+  // 彻底删除自定义网站（同时移除其选择与置顶）
+  function removeCustomSite(id){
+    const s = customSites.find(x => x.id === id);
+    if(!s) return;
+    const key = "site:" + s.url;
+    selectedSet.delete(key);
+    pinnedList = pinnedList.filter(k => k !== key);
+    pinnedSet.delete(key);
+    customOrder = customOrder.filter(k => k !== key);
+    delete customNames[key];
+    customSites = customSites.filter(x => x.id !== id);
+    saveCustomSites(true);
+    toastShow(`已删除网站「${s.title || s.url}」`, "ok");
   }
 
   // ---- 抓取页面标题 ----
@@ -962,7 +1100,7 @@
 
   // ---- 渲染：分类标签（只统计已选择的卡片）----
   function renderChips(items){
-    const counts = {all:0, report:0, tool:0, other:0};
+    const counts = {all:0, report:0, tool:0, other:0, site:0};
     items.forEach(it => {
       if(!selectedSet.has(itemKey(it))) return;
       counts.all++;
@@ -973,6 +1111,7 @@
       {key:"all", label:"全部"},
       {key:"report", label:"分析报告"},
       {key:"tool", label:"工具系统"},
+      {key:"site", label:"外部网站"},
       {key:"other", label:"项目页面"}
     ];
     chipsBox.innerHTML = list.map(it =>
@@ -1032,7 +1171,9 @@
       const meta = metaMap[it.url] || {};
       const cat = categorize(it, meta);
       const key = itemKey(it);
-      const defaultTitle = meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName);
+      const defaultTitle = it.isSite
+        ? (customNames[key] || meta.h1 || meta.title || it.title || it.repo.name)
+        : (meta.h1 || meta.desc || meta.title || it.title || it.repo.description || fileNameLabel(it.fileName));
       const customName = customNames[key];
       const shortTitle = customName || defaultTitle;
       const delay = Math.min(i*50, 400);
@@ -1060,8 +1201,9 @@
           更新于 ${fmtDate(it.updatedAt)}
         </div>
         <div class="card-sub">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
-          ${escapeHtml(it.repo.name)}<span class="sep">/</span>${escapeHtml(it.fileName)}${isIndex?'<span class="sep">(首页)</span>':''}
+          ${it.isSite
+            ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> ${escapeHtml(it.repo.name)}`
+            : `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg> ${escapeHtml(it.repo.name)}<span class="sep">/</span>${escapeHtml(it.fileName)}${isIndex?'<span class="sep">(首页)</span>':''}`}
         </div>
         <div class="card-foot">
           <a class="btn-primary" href="${it.url}" target="_blank" rel="noopener">
@@ -1072,10 +1214,10 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             分享
           </button>
-          <a class="btn-ghost" href="${it.repo.html_url}" target="_blank" rel="noopener" title="查看源码仓库">
+          ${it.isSite ? "" : `<a class="btn-ghost" href="${it.repo.html_url}" target="_blank" rel="noopener" title="查看源码仓库">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             源码
-          </a>
+          </a>`}
         </div>
       </article>`;
     }).join("");
@@ -1162,7 +1304,7 @@
       const q = searchInput.value.trim().toLowerCase();
       if(q){
         const meta = metaMap[it.url] || {};
-        const hay = [it.repo.name, it.repo.description, it.fileName, meta.title, meta.desc, meta.h1]
+        const hay = [it.repo.name, it.repo.description, it.fileName, it.title, it.url, meta.title, meta.desc, meta.h1, customNames[itemKey(it)]]
           .filter(Boolean).join(" ").toLowerCase();
         if(!hay.includes(q)) return false;
       }
@@ -1411,7 +1553,7 @@
     if(q){
       list = allItems.filter(it=>{
         const meta = metaMap[it.url] || {};
-        const hay = [it.repo.name, it.repo.description, it.fileName, meta.title, meta.desc, meta.h1, customNames[itemKey(it)]]
+        const hay = [it.repo.name, it.repo.description, it.fileName, it.title, it.url, meta.title, meta.desc, meta.h1, customNames[itemKey(it)]]
           .filter(Boolean).join(" ").toLowerCase();
         return hay.includes(q);
       });
@@ -1419,13 +1561,37 @@
     // 按仓库分组
     const groups = {};
     list.forEach(it=>{
-      (groups[it.repo.name] = groups[it.repo.name] || []).push(it);
+      const gn = it.isSite ? "__sites__" : it.repo.name;
+      (groups[gn] = groups[gn] || []).push(it);
     });
+    let h = "";
+    // 自定义网站分组置顶展示
+    if(groups["__sites__"]){
+      h += `<div class="lib-group">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        自定义网站
+      </div>`;
+      groups["__sites__"].forEach(it=>{
+        const key = itemKey(it);
+        const sel = selectedSet.has(key);
+        const title = customNames[key] || it.title || it.repo.name;
+        h += `<div class="lib-item ${sel?'on':''}">
+          <div class="info">
+            <div class="name">${escapeHtml(title)}</div>
+            <div class="repo">${escapeHtml(it.url)}</div>
+          </div>
+          <button class="btn-delsite" data-delsite="${escapeHtml(it.siteId)}" title="从卡片库彻底删除该网站">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+          <button class="btn-toggle ${sel?'on':''}" data-lib="${escapeHtml(key)}">${sel?"已添加":"添加"}</button>
+        </div>`;
+      });
+      delete groups["__sites__"];
+    }
     const repoNames = Object.keys(groups).sort((a,b)=>{
       const ra = groups[a][0].repo.updated_at, rb = groups[b][0].repo.updated_at;
       return new Date(rb) - new Date(ra);
     });
-    let h = "";
     repoNames.forEach(rn=>{
       h += `<div class="lib-group">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
@@ -1466,6 +1632,9 @@
         applyFilter();
       });
     });
+    libBody.querySelectorAll("[data-delsite]").forEach(btn=>{
+      btn.addEventListener("click", ()=> removeCustomSite(btn.dataset.delsite));
+    });
   }
   window.__openLib = function(){
     renderLibrary();
@@ -1483,7 +1652,7 @@
     if(q){
       list = list.filter(it=>{
         const meta = metaMap[it.url] || {};
-        const hay = [it.repo.name, it.repo.description, it.fileName, meta.title, meta.desc, meta.h1]
+        const hay = [it.repo.name, it.repo.description, it.fileName, it.title, it.url, meta.title, meta.desc, meta.h1, customNames[itemKey(it)]]
           .filter(Boolean).join(" ").toLowerCase();
         return hay.includes(q);
       });
@@ -1542,6 +1711,7 @@
       }
       allItems = cache.items;
       metaMap = cache.meta || {};
+      ensureSites();
       renderChips(allItems);
       updateAddBadge();
       applyFilter();
@@ -1580,6 +1750,7 @@
 
       const filtered = filterSubpages(items);
       allItems = filtered;
+      ensureSites();
 
       saveCache(filtered);
       renderChips(allItems);
@@ -1593,6 +1764,7 @@
       if(cache){
         allItems = cache.items;
         metaMap = cache.meta || {};
+        ensureSites();
         renderChips(allItems);
         updateAddBadge();
         applyFilter();
@@ -1652,6 +1824,9 @@
     applyFilter();
     toastShow("已清空选择", "ok");
   });
+  siteAddBtn.addEventListener("click", addCustomSite);
+  siteUrlInput.addEventListener("keydown", e=>{ if(e.key === "Enter") addCustomSite(); });
+  siteTitleInput.addEventListener("keydown", e=>{ if(e.key === "Enter") addCustomSite(); });
 
   // Token 模态框事件
   tokenBtn.addEventListener("click", ()=>{
