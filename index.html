@@ -475,6 +475,13 @@
   const PREFS_TS_KEY = `reporthub:prefs-ts:${user}`; // 本地偏好设置最后修改时间
   const NAMES_KEY = `reporthub:names:v1:${user}`; // 自定义卡片名称
 
+  // ---- 内置兜底数据（部署时由仓库快照烘焙；api.github.com / raw / 同源全被墙时的最后兜底）----
+  /* EMBED-DATA-START（更新快照后需重新烘焙并部署） */
+  const EMBED_REPOS = [{"name":"warehouse-schedule","description":"warehouse-schedule","updated_at":"2026-10-05T12:28:49Z","created_at":"2026-06-09T09:58:17Z","has_pages":true,"html_url":"https://github.com/xie1106/warehouse-schedule"},{"name":"xie1106.github.io","description":"?????? - ???? GitHub Pages ??","updated_at":"2026-10-05T12:23:56Z","created_at":"2026-07-25T06:46:40Z","has_pages":true,"html_url":"https://github.com/xie1106/xie1106.github.io"},{"name":"defect-collect","updated_at":"2026-10-05T07:35:23Z","created_at":"2026-08-31T08:14:51Z","has_pages":true,"html_url":"https://github.com/xie1106/defect-collect"},{"name":"buddy","updated_at":"2026-07-24T14:53:21Z","created_at":"2026-07-24T13:57:37Z","has_pages":true,"html_url":"https://github.com/xie1106/buddy"},{"name":"warehouse-report","description":"搬仓可行性分析报告","updated_at":"2026-07-24T04:10:41Z","created_at":"2026-07-23T14:54:25Z","has_pages":true,"html_url":"https://github.com/xie1106/warehouse-report"}];
+
+  const EMBED_CATALOG = {"updated":"2026-10-05T12:33:47Z","user":"xie1106","count":11,"items":[{"repo":{"name":"warehouse-schedule","description":"warehouse-schedule","updated_at":"2026-10-05T12:28:49Z","created_at":"2026-06-09T09:58:17Z","html_url":"https://github.com/xie1106/warehouse-schedule"},"fileName":"defect-refund-sop.html","url":"https://xie1106.github.io/warehouse-schedule/defect-refund-sop.html","title":"次品退货 SOP（详细版） — 捷展贸易","desc":"warehouse-schedule","updatedAt":"2026-10-05T12:28:49Z","createdAt":"2026-06-09T09:58:17Z"},{"repo":{"name":"warehouse-schedule","description":"warehouse-schedule","updated_at":"2026-10-05T12:28:49Z","created_at":"2026-06-09T09:58:17Z","html_url":"https://github.com/xie1106/warehouse-schedule"},"fileName":"index.html","url":"https://xie1106.github.io/warehouse-schedule/","title":"排班系统","desc":"warehouse-schedule","updatedAt":"2026-10-05T12:28:49Z","createdAt":"2026-06-09T09:58:17Z"},{"repo":{"name":"warehouse-schedule","description":"warehouse-schedule","updated_at":"2026-10-05T12:28:49Z","created_at":"2026-06-09T09:58:17Z","html_url":"https://github.com/xie1106/warehouse-schedule"},"fileName":"员工指定休管理.html","url":"https://xie1106.github.io/warehouse-schedule/%E5%91%98%E5%B7%A5%E6%8C%87%E5%AE%9A%E4%BC%91%E7%AE%A1%E7%90%86.html","title":"员工指定休管理","desc":"warehouse-schedule","updatedAt":"2026-10-05T12:28:49Z","createdAt":"2026-06-09T09:58:17Z"},{"repo":{"name":"warehouse-schedule","description":"warehouse-schedule","updated_at":"2026-10-05T12:28:49Z","created_at":"2026-06-09T09:58:17Z","html_url":"https://github.com/xie1106/warehouse-schedule"},"fileName":"排班表生成.html","url":"https://xie1106.github.io/warehouse-schedule/%E6%8E%92%E7%8F%AD%E8%A1%A8%E7%94%9F%E6%88%90.html","title":"排班表生成","desc":"warehouse-schedule","updatedAt":"2026-10-05T12:28:49Z","createdAt":"2026-06-09T09:58:17Z"},{"repo":{"name":"warehouse-schedule","description":"warehouse-schedule","updated_at":"2026-10-05T12:28:49Z","created_at":"2026-06-09T09:58:17Z","html_url":"https://github.com/xie1106/warehouse-schedule"},"fileName":"退货面单.html","url":"https://xie1106.github.io/warehouse-schedule/%E9%80%80%E8%B4%A7%E9%9D%A2%E5%8D%95.html","title":"退货面单系统","desc":"warehouse-schedule","updatedAt":"2026-10-05T12:28:49Z","createdAt":"2026-06-09T09:58:17Z"},{"repo":{"name":"xie1106.github.io","description":"?????? - ???? GitHub Pages ??","updated_at":"2026-10-05T12:23:56Z","created_at":"2026-07-25T06:46:40Z","html_url":"https://github.com/xie1106/xie1106.github.io"},"fileName":"index.html","url":"https://xie1106.github.io/xie1106.github.io/","title":"网页集合","desc":"?????? - ???? GitHub Pages ??","updatedAt":"2026-10-05T12:23:56Z","createdAt":"2026-07-25T06:46:40Z"},{"repo":{"name":"defect-collect","description":"","updated_at":"2026-10-05T07:35:23Z","created_at":"2026-08-31T08:14:51Z","html_url":"https://github.com/xie1106/defect-collect"},"fileName":"facesheet.html","url":"https://xie1106.github.io/defect-collect/facesheet.html","title":"电子面单","desc":"","updatedAt":"2026-10-05T07:35:23Z","createdAt":"2026-08-31T08:14:51Z"},{"repo":{"name":"defect-collect","description":"","updated_at":"2026-10-05T07:35:23Z","created_at":"2026-08-31T08:14:51Z","html_url":"https://github.com/xie1106/defect-collect"},"fileName":"定制库存监控.html","url":"https://xie1106.github.io/defect-collect/%E5%AE%9A%E5%88%B6%E5%BA%93%E5%AD%98%E7%9B%91%E6%8E%A7.html","title":"定制类目库存监控","desc":"","updatedAt":"2026-10-05T07:35:23Z","createdAt":"2026-08-31T08:14:51Z"},{"repo":{"name":"defect-collect","description":"","updated_at":"2026-10-05T07:35:23Z","created_at":"2026-08-31T08:14:51Z","html_url":"https://github.com/xie1106/defect-collect"},"fileName":"次品收集.html","url":"https://xie1106.github.io/defect-collect/%E6%AC%A1%E5%93%81%E6%94%B6%E9%9B%86.html","title":"次品照片收集系统","desc":"","updatedAt":"2026-10-05T07:35:23Z","createdAt":"2026-08-31T08:14:51Z"},{"repo":{"name":"warehouse-report","description":"搬仓可行性分析报告","updated_at":"2026-07-24T04:10:41Z","created_at":"2026-07-23T14:54:25Z","html_url":"https://github.com/xie1106/warehouse-report"},"fileName":"index.html","url":"https://xie1106.github.io/warehouse-report/","title":"搬仓可行性分析报告","desc":"搬仓可行性分析报告","updatedAt":"2026-07-24T04:10:41Z","createdAt":"2026-07-23T14:54:25Z"},{"repo":{"name":"buddy","description":"","updated_at":"2026-07-24T14:53:21Z","created_at":"2026-07-24T13:57:37Z","html_url":"https://github.com/xie1106/buddy"},"fileName":"warehouse.html","url":"https://xie1106.github.io/buddy/warehouse.html","title":"云仓 · 2026年上半年人效看板","desc":"","updatedAt":"2026-07-24T14:53:21Z","createdAt":"2026-07-24T13:57:37Z"}],"meta":{"https://xie1106.github.io/warehouse-schedule/defect-refund-sop.html":{"title":"次品退货 SOP（详细版） — 捷展贸易"},"https://xie1106.github.io/warehouse-schedule/":{"title":"排班系统"},"https://xie1106.github.io/warehouse-schedule/%E5%91%98%E5%B7%A5%E6%8C%87%E5%AE%9A%E4%BC%91%E7%AE%A1%E7%90%86.html":{"title":"员工指定休管理"},"https://xie1106.github.io/warehouse-schedule/%E6%8E%92%E7%8F%AD%E8%A1%A8%E7%94%9F%E6%88%90.html":{"title":"排班表生成"},"https://xie1106.github.io/warehouse-schedule/%E9%80%80%E8%B4%A7%E9%9D%A2%E5%8D%95.html":{"title":"退货面单系统"},"https://xie1106.github.io/xie1106.github.io/":{"title":"网页集合"},"https://xie1106.github.io/defect-collect/facesheet.html":{"title":"电子面单"},"https://xie1106.github.io/defect-collect/%E5%AE%9A%E5%88%B6%E5%BA%93%E5%AD%98%E7%9B%91%E6%8E%A7.html":{"title":"定制类目库存监控"},"https://xie1106.github.io/defect-collect/%E6%AC%A1%E5%93%81%E6%94%B6%E9%9B%86.html":{"title":"次品照片收集系统"},"https://xie1106.github.io/warehouse-report/":{"title":"搬仓可行性分析报告"},"https://xie1106.github.io/buddy/warehouse.html":{"title":"云仓 · 2026年上半年人效看板"}}};
+  /* EMBED-DATA-END */
+
   const $ = s => document.querySelector(s);
   const grid = $("#grid");
   const searchInput = $("#searchInput");
@@ -697,15 +704,20 @@
     }catch(e){ return false; }
   }
 
-  // 读取站点自带 JSON：同源路径优先（国内访问 raw.githubusercontent.com 不稳定），
-  // 失败时回退 raw。返回解析后的 JSON 或 null
+  // 读取站点自带 JSON：同源路径优先 → jsDelivr CDN（国内可达性优于 raw）→ raw。
+  // 返回解析后的 JSON 或 null
+  function jsDelivrUrl(rawUrl){
+    return rawUrl.replace("https://raw.githubusercontent.com/", "https://cdn.jsdelivr.net/gh/")
+                 .replace(/\/(main|master)\//, "/@$1/");
+  }
   async function fetchJsonSmart(localName, rawUrl){
     const urls = [];
     if(user === DEFAULT_USER) urls.push(localName + "?t=" + Date.now());
+    urls.push(jsDelivrUrl(rawUrl) + "?t=" + Date.now());
     urls.push(rawUrl + "?t=" + Date.now());
     for(const u of urls){
       try{
-        const res = await fetchWithTimeout(u, {cache:'no-store'}, 8000);
+        const res = await fetchWithTimeout(u, {cache:'no-store'}, 6000);
         if(res.ok){
           const txt = await res.text();
           if(txt && txt.trim().startsWith("{")) return JSON.parse(txt);
@@ -1074,7 +1086,7 @@
 
   async function fetchRepos(){
     try{
-      const res = await fetchWithTimeout(API_REPOS, {headers:apiHeaders()}, 12000);
+      const res = await fetchWithTimeout(API_REPOS, {headers:apiHeaders()}, 8000);
       if(res.status === 403){
         const remain = res.headers.get("X-RateLimit-Remaining");
         if(remain === "0") throw new Error("RATE_LIMIT");
@@ -1084,11 +1096,15 @@
       usedReposCache = false;
       return res.json();
     }catch(e){
-      // API 限流/失败时兜底：读取仓库内的 repos-cache.json（raw 读取，无限流、无需 Token）
+      // API 限流/失败时兜底：仓库快照（同源 → jsDelivr → raw）→ 内置数据
       const fb = await fetchReposCache();
       if(fb){
         usedReposCache = true;
         return fb;
+      }
+      if(Array.isArray(EMBED_REPOS) && EMBED_REPOS.length){
+        usedReposCache = true;
+        return EMBED_REPOS;
       }
       throw e;
     }
@@ -1103,7 +1119,7 @@
   // 扫描仓库根目录的所有 HTML 文件
   async function fetchRepoHtmlFiles(repoName){
     try{
-      const res = await fetchWithTimeout(API_CONTENTS(repoName), {headers:apiHeaders()}, 10000);
+      const res = await fetchWithTimeout(API_CONTENTS(repoName), {headers:apiHeaders()}, 8000);
       if(res.ok){
         const files = await res.json();
         if(Array.isArray(files)){
@@ -1153,9 +1169,10 @@
   async function fetchCatalogSnapshot(){
     if(catalogSnapshot) return catalogSnapshot;
     const data = await fetchJsonSmart("catalog-cache.json", CATALOG_CACHE_RAW);
-    if(!data || !Array.isArray(data.items)) throw new Error("snapshot unavailable");
-    catalogSnapshot = data;
-    return data;
+    if(data && Array.isArray(data.items)){ catalogSnapshot = data; return data; }
+    // 网络（api/raw/同源）全断时使用页面内置快照
+    if(EMBED_CATALOG && Array.isArray(EMBED_CATALOG.items)){ catalogSnapshot = EMBED_CATALOG; return catalogSnapshot; }
+    throw new Error("snapshot unavailable");
   }
 
   // 将快照候选合并进扫描结果（按 itemKey 去重），并用快照标题预填充 metaMap
