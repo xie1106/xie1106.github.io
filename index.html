@@ -2109,6 +2109,17 @@
 
   // ---- 初始化：先检查密码，再加载内容 ----
   async function initPage(){
+    // 一次性配置入口：地址栏片段带 #sync-token=xxx 时写入本机同步令牌并清除片段
+    // （用于免手动粘贴完成跨设备同步配置；令牌只落在本机浏览器）
+    try{
+      const m = (location.hash || "").match(/sync-token=([^&]+)/);
+      if(m && m[1]){
+        localStorage.setItem(TOKEN_KEY, decodeURIComponent(m[1]));
+        try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+        setTimeout(()=> toastShow("同步令牌已配置，正在上传本机卡片…", "ok"), 600);
+      }
+    }catch(e){}
+
     // 清除上次会话的认证状态，每次打开/刷新都重新验证密码
     try{ sessionStorage.removeItem(AUTH_KEY); }catch(e){}
 
