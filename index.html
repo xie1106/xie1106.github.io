@@ -404,12 +404,30 @@
       </button>
     </div>
     <div class="modal-body" style="padding:20px">
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
-        设置访问密码后，所有设备打开网页都需要输入密码。密码哈希存储在云端，跨设备生效。
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+        <b style="color:var(--text)">跨设备同步</b>：在本机配置一次同步令牌，之后本机所选卡片、添加的网站会自动上传到云端，
+        手机或其他电脑打开网页即可看到同样的卡片。<br>
+        令牌只保存在本机浏览器，不会写进网页。建议创建<b>仅限本仓库</b>、权限为 <code>Contents: Read and write</code> 的令牌。
       </p>
-      <input id="pwdInput" type="password" placeholder="设置新密码（留空清除）" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;margin-bottom:10px" autocomplete="new-password">
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn btn-primary" id="pwdSaveBtn" style="background:var(--accent);color:#fff;border:none">设置密码</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="tokenInput" type="password" placeholder="粘贴令牌（ghp_ / github_pat_ …）" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-family:'SFMono-Regular',Consolas,monospace;font-size:13px" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px">
+        <button class="btn" id="tokenClearBtn" style="border:1px solid var(--border)">清除令牌</button>
+        <button class="btn btn-primary" id="tokenSaveBtn" style="background:var(--accent);color:#fff;border:none">保存并上传</button>
+      </div>
+      <div id="syncState" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:4px"></div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">创建令牌</a>
+      </p>
+      <div style="border-top:1px solid var(--border);padding-top:18px">
+        <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:14px">
+          设置访问密码后，所有设备打开网页都需要输入密码。密码哈希存储在云端，跨设备生效。
+        </p>
+        <input id="pwdInput" type="password" placeholder="设置新密码（留空清除）" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;margin-bottom:10px" autocomplete="new-password">
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-primary" id="pwdSaveBtn" style="background:var(--accent);color:#fff;border:none">设置密码</button>
+        </div>
       </div>
     </div>
   </div>
@@ -465,6 +483,7 @@
   const PAGES_BASE = `https://${user}.github.io`;
   const CACHE_KEY = `reporthub:v6:${user}`;
   const SELECTED_KEY = `reporthub:selected:v1:${user}`; // 已选择的卡片（白名单）
+  const SEL_EDIT_TS_KEY = `reporthub:sel-edit-ts:${user}`; // 本机最后一次【手动】改动卡片选择的时刻（用于跨设备合并）
   const SITES_KEY = `reporthub:sites:v1:${user}`;        // 自定义网站列表
   const ORDER_KEY = `reporthub:order:v4:${user}`;
   const CACHE_TTL = 1000 * 60 * 120;
@@ -505,6 +524,10 @@
   const tokenBtn = $("#tokenBtn");
   const tokenModal = $("#tokenModal");
   const tokenCloseBtn = $("#tokenCloseBtn");
+  const tokenInput = $("#tokenInput");
+  const tokenSaveBtn = $("#tokenSaveBtn");
+  const tokenClearBtn = $("#tokenClearBtn");
+  const syncStateEl = $("#syncState");
   const TOKEN_KEY = `reporthub:token`; // 兼容保留：历史上配置过的 Token 仍用于云端上传，界面已移除
   const LOCAL_PWD_KEY = `reporthub:localpwdhash`; // 未配置云端上传时，密码哈希的本机存储
   const AUTH_KEY = `reporthub:auth`; // sessionStorage key for auth state
@@ -610,35 +633,56 @@
   let cloudSaveChain = Promise.resolve(); // 云端保存串行链，防止并发写冲突
   let cloudPrefsLoaded = false;
 
-  // 将云端偏好数据合并到本地状态（置顶、排序、名称）
-  // 卡片选择与自定义网站【绝不被云端自动覆盖】：仅在本机从未设置过（localStorage 无记录，
-  // 即全新设备首次使用）时才从云端初始化一次；之后清空、增删全以本机操作为准
+  // 将云端偏好数据合并到本地状态（卡片选择、自定义网站、置顶、排序、名称）
+  // 卡片选择与自定义网站：本机从未设置过 → 用云端初始化；
+  // 本机设置过 → 按「最后写入者优先」比较时间戳：云端比本机手动改动更晚则采用云端
+  // （这样电脑端新加的卡片能同步到手机端；本机刚改的内容也不会被旧云端数据覆盖）
   // 返回是否有变化
+  function markSelEdit(){ try{ localStorage.setItem(SEL_EDIT_TS_KEY, new Date().toISOString()); }catch(e){} }
+  function sameStrSet(arr){
+    const a = new Set(arr || []);
+    if(a.size !== selectedSet.size) return false;
+    for(const k of selectedSet){ if(!a.has(k)) return false; }
+    return true;
+  }
   function applyCloudPrefs(cloud){
     let changed = false;
+    let localEditTs = null;
+    try{ localEditTs = localStorage.getItem(SEL_EDIT_TS_KEY); }catch(e){}
+    const cloudUpdated = cloud.updated ? new Date(cloud.updated).getTime() : 0;
+    const localEditMs = localEditTs ? new Date(localEditTs).getTime() : 0;
+    // 云端比本机手动改动更新（本机从未手动改过时也视为云端更新）
+    const cloudWins = cloudUpdated > 0 && cloudUpdated > localEditMs;
 
-    // 卡片选择：仅本机从未设置过时初始化（用 localStorage 是否有记录判断，清空过也算设置过）
+    // 卡片选择
     let hasLocalSel = false;
     try{ hasLocalSel = localStorage.getItem(SELECTED_KEY) !== null; }catch(e){}
-    if(!hasLocalSel && Array.isArray(cloud.selected) && cloud.selected.length > 0){
-      selectedSet = new Set(cloud.selected);
-      try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
-      changed = true;
+    if(Array.isArray(cloud.selected) && (!hasLocalSel || cloudWins)){
+      if(!sameStrSet(cloud.selected)){
+        selectedSet = new Set(cloud.selected);
+        try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
+        changed = true;
+      }
     }
 
-    // 自定义网站：同上，仅本机从未设置过时初始化
+    // 自定义网站
     let hasLocalSites = false;
     try{ hasLocalSites = localStorage.getItem(SITES_KEY) !== null; }catch(e){}
-    if(!hasLocalSites && Array.isArray(cloud.sites) && cloud.sites.length > 0){
-      customSites = cloud.sites.filter(s => s && s.url).map(cs => ({
-        id: cs.id || "s" + Math.random().toString(36).slice(2, 10),
-        url: cs.url,
-        title: cs.title || "",
-        addedAt: cs.addedAt || new Date().toISOString()
-      }));
-      try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
-      ensureSites();
-      changed = true;
+    const cloudSitesArr = Array.isArray(cloud.sites) ? cloud.sites.filter(s => s && s.url) : null;
+    if(cloudSitesArr && (!hasLocalSites || cloudWins)){
+      const localUrls = customSites.map(s => s.url).sort().join("|");
+      const cloudUrls = cloudSitesArr.map(s => s.url).sort().join("|");
+      if(localUrls !== cloudUrls){
+        customSites = cloudSitesArr.map(cs => ({
+          id: cs.id || "s" + Math.random().toString(36).slice(2, 10),
+          url: cs.url,
+          title: cs.title || "",
+          addedAt: cs.addedAt || new Date().toISOString()
+        }));
+        try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
+        ensureSites();
+        changed = true;
+      }
     }
 
     // 置顶：并集合并（任一设备置顶的都保留，防止丢失）
@@ -780,12 +824,12 @@
   // 保存置顶、排序和回收站到云端
   // immediate=true 时立即上传（用于删除/恢复操作），否则防抖 2 秒
   // 上传前先读取云端数据并合并，确保不丢失其他设备的数据
-  function saveCloudPrefs(immediate){
+  function saveCloudPrefs(immediate, done){
     const now = new Date().toISOString();
     try{ localStorage.setItem(PREFS_TS_KEY, now); }catch(e){}
 
     const token = getToken();
-    if(!token) return;
+    if(!token){ if(done) done(false, "no-token"); return; }
 
     const doSave = async ()=>{
       // 最多重试 3 次：409 冲突（其他设备/标签页刚写入）时重新读取再上传
@@ -848,19 +892,22 @@
           }, 15000);
 
           if(res.ok){
-            if(immediate) toastShow("已同步到云端", "ok");
+            if(done) done(true);
+            else if(immediate) toastShow("已同步到云端", "ok");
             return;
           }
           if(res.status === 409 && attempt < 2){
             continue; // SHA 冲突：云端已被更新，重新读取后再试
           }
-          if(res.status === 401 && immediate){
+          if(done) done(false, "http-" + res.status);
+          else if(res.status === 401 && immediate){
             toastShow("云端保存失败（授权已过期），本次更改仅保存在本机", "err");
           }
           return;
         }catch(e){
           if(attempt >= 2){
-            if(immediate) toastShow("云端保存失败，请检查网络", "err");
+            if(done) done(false, "network");
+            else if(immediate) toastShow("云端保存失败，请检查网络", "err");
             return;
           }
         }
@@ -949,6 +996,7 @@
   let saveSelTimer = null;
   function saveSelected(syncNow){
     try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
+    markSelEdit();
     updateAddBadge();
     if(syncNow) saveCloudPrefs(true);
     else{
@@ -997,6 +1045,7 @@
 
   function saveCustomSites(syncNow){
     try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
+    markSelEdit();
     ensureSites();
     renderChips(allItems);
     applyFilter();
@@ -1973,14 +2022,48 @@
   siteTitleInput.addEventListener("keydown", e=>{ if(e.key === "Enter") addCustomSite(); });
 
   // 设置模态框事件
+  function updateSyncState(){
+    if(!syncStateEl) return;
+    if(getToken()){
+      syncStateEl.textContent = "已配置：本机改动会自动上传到云端";
+      syncStateEl.style.color = "var(--muted)";
+    }else{
+      syncStateEl.textContent = "未配置：卡片只保存在本机，其他设备看不到";
+      syncStateEl.style.color = "var(--rose)";
+    }
+  }
   tokenBtn.addEventListener("click", ()=>{
+    tokenInput.value = getToken();
     pwdInput.value = "";
+    updateSyncState();
     tokenModal.classList.add("show");
-    setTimeout(()=> pwdInput.focus(), 100);
   });
   tokenCloseBtn.addEventListener("click", ()=> tokenModal.classList.remove("show"));
   tokenModal.addEventListener("click", e=>{
     if(e.target === tokenModal) tokenModal.classList.remove("show");
+  });
+  tokenSaveBtn.addEventListener("click", ()=>{
+    const val = tokenInput.value.trim();
+    try{
+      if(val) localStorage.setItem(TOKEN_KEY, val);
+      else localStorage.removeItem(TOKEN_KEY);
+    }catch(e){}
+    if(!val){
+      toastShow("请输入令牌", "err");
+      return;
+    }
+    updateSyncState();
+    toastShow("令牌已保存，正在上传本机卡片…", "ok");
+    saveCloudPrefs(true, (ok)=>{
+      if(ok) toastShow("已上传：本机卡片已同步到云端", "ok");
+      else toastShow("上传失败，请检查令牌权限与网络", "err");
+    });
+  });
+  tokenClearBtn.addEventListener("click", ()=>{
+    tokenInput.value = "";
+    try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+    updateSyncState();
+    toastShow("同步令牌已清除", "ok");
   });
 
   document.addEventListener("keydown", e=>{
