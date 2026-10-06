@@ -604,39 +604,35 @@
   let cloudSaveChain = Promise.resolve(); // 云端保存串行链，防止并发写冲突
   let cloudPrefsLoaded = false;
 
-  // 将云端偏好数据合并到本地状态（卡片选择、自定义网站、置顶、排序）
+  // 将云端偏好数据合并到本地状态（置顶、排序、名称）
+  // 卡片选择与自定义网站【绝不被云端自动覆盖】：仅在本机从未设置过（localStorage 无记录，
+  // 即全新设备首次使用）时才从云端初始化一次；之后清空、增删全以本机操作为准
   // 返回是否有变化
   function applyCloudPrefs(cloud){
     let changed = false;
 
-    // 卡片选择：云端较新时整体采用云端（保证各设备一致）
-    if(Array.isArray(cloud.selected)){
-      const cloudSel = new Set(cloud.selected);
-      const differs = cloudSel.size !== selectedSet.size ||
-        [...cloudSel].some(k => !selectedSet.has(k));
-      if(differs && cloudIsNewer(cloud)){
-        selectedSet = cloudSel;
-        try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
-        changed = true;
-      }
+    // 卡片选择：仅本机从未设置过时初始化（用 localStorage 是否有记录判断，清空过也算设置过）
+    let hasLocalSel = false;
+    try{ hasLocalSel = localStorage.getItem(SELECTED_KEY) !== null; }catch(e){}
+    if(!hasLocalSel && Array.isArray(cloud.selected) && cloud.selected.length > 0){
+      selectedSet = new Set(cloud.selected);
+      try{ localStorage.setItem(SELECTED_KEY, JSON.stringify([...selectedSet])); }catch(e){}
+      changed = true;
     }
 
-    // 自定义网站：云端较新时整体采用云端（与卡片选择一致，最后写入者优先）
-    if(Array.isArray(cloud.sites)){
-      const cloudSites = cloud.sites.filter(s => s && s.url);
-      const differs = cloudSites.length !== customSites.length ||
-        cloudSites.some(cs => !customSites.some(s => s.url === cs.url));
-      if(differs && cloudIsNewer(cloud)){
-        customSites = cloudSites.map(cs => ({
-          id: cs.id || "s" + Math.random().toString(36).slice(2, 10),
-          url: cs.url,
-          title: cs.title || "",
-          addedAt: cs.addedAt || new Date().toISOString()
-        }));
-        try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
-        ensureSites();
-        changed = true;
-      }
+    // 自定义网站：同上，仅本机从未设置过时初始化
+    let hasLocalSites = false;
+    try{ hasLocalSites = localStorage.getItem(SITES_KEY) !== null; }catch(e){}
+    if(!hasLocalSites && Array.isArray(cloud.sites) && cloud.sites.length > 0){
+      customSites = cloud.sites.filter(s => s && s.url).map(cs => ({
+        id: cs.id || "s" + Math.random().toString(36).slice(2, 10),
+        url: cs.url,
+        title: cs.title || "",
+        addedAt: cs.addedAt || new Date().toISOString()
+      }));
+      try{ localStorage.setItem(SITES_KEY, JSON.stringify(customSites)); }catch(e){}
+      ensureSites();
+      changed = true;
     }
 
     // 置顶：并集合并（任一设备置顶的都保留，防止丢失）
@@ -1816,34 +1812,51 @@
   }
 
   // ---- 主流程 ----
+  // 手动模式：仅当用户点击「同步」(force=true) 时才联网刷新；
+  // 平时打开页面只用本地缓存渲染，绝不自动请求，卡片选择不会被意外改动
   async function load(force){
-    const cache = loadAnyCache();
-    if(cache && cache.items && cache.items.length){
-      // 等待云端偏好加载完成再渲染，确保手机和电脑显示一致
-      if(!cloudPrefsLoaded){
-        renderSkeleton(4);
-        await loadCloudPrefsAsync();
-      }
-      allItems = cache.items;
-      metaMap = cache.meta || {};
-      ensureSites();
-      renderChips(allItems);
-      updateAddBadge();
-      applyFilter();
-    }else{
-      renderSkeleton(4);
-    }
-
     refreshBtn.style.opacity = .6; refreshBtn.style.pointerEvents = "none";
-
-    const cacheFresh = cache && (Date.now() - cache.t < CACHE_TTL);
-    if(!force && cacheFresh){
+    try{
+      const cache = loadAnyCache();
+      if(!force){
+        if(cache && cache.items && cache.items.length){
+          if(!cloudPrefsLoaded){
+            renderSkeleton(4);
+            await loadCloudPrefsAsync();
+          }
+          allItems = cache.items;
+          metaMap = cache.meta || {};
+          ensureSites();
+          renderChips(allItems);
+          updateAddBadge();
+          applyFilter();
+        }else{
+          // 本机无数据且非手动同步：提示用户点击「同步」
+          stateBox('<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
+            "还没有加载数据","点击上方「同步」按钮，从 Git 仓库获取网页列表。加载一次后数据保存在本机，之后打开不再自动联网。", null, null);
+          resultCount.textContent = "";
+        }
+        return;
+      }
+      // force=true：用户主动点「同步」
+      if(cache && cache.items && cache.items.length){
+        // 先用缓存渲染，避免同步过程中白屏
+        if(!cloudPrefsLoaded){
+          await loadCloudPrefsAsync();
+        }
+        allItems = cache.items;
+        metaMap = cache.meta || {};
+        ensureSites();
+        renderChips(allItems);
+        updateAddBadge();
+        applyFilter();
+      }else{
+        renderSkeleton(4);
+      }
+      await refresh(true);
+    }finally{
       refreshBtn.style.opacity = ""; refreshBtn.style.pointerEvents = "";
-      return;
     }
-
-    await refresh(true);
-    // refresh 内部已 await loadCloudPrefsAsync，无需再调用
   }
 
   async function refresh(announce){
